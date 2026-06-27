@@ -1,0 +1,200 @@
+{
+  "platformVersion": "0.1.0",
+  "approvedSources": [
+    {
+      "moduleId": "scheduling",
+      "repositoryUrl": "https://github.com/interopmed/shin-scheduling",
+      "allowedRefs": ["v0.1.0", "master"],
+      "defaultRef": "master",
+      "status": "approved"
+    },
+    {
+      "moduleId": "ehr",
+      "repositoryUrl": "https://github.com/interopmed/shin-ehr",
+      "allowedRefs": ["v0.1.0", "master"],
+      "defaultRef": "master",
+      "status": "approved"
+    },
+    {
+      "moduleId": "lab",
+      "repositoryUrl": "https://github.com/interopmed/shin-lab",
+      "allowedRefs": ["v0.1.0", "master"],
+      "defaultRef": "master",
+      "status": "approved"
+    },
+    {
+      "moduleId": "billing",
+      "repositoryUrl": "https://github.com/interopmed/shin-billing",
+      "allowedRefs": ["v0.1.0", "master"],
+      "defaultRef": "master",
+      "status": "approved"
+    }
+  ],
+  "manifests": [
+    {
+      "moduleId": "scheduling",
+      "name": "Scheduling",
+      "version": "0.1.0",
+      "category": "clinical-operations",
+      "description": "Appointment booking, provider availability, queues, reminders, and encounter linking.",
+      "repositoryUrl": "https://github.com/interopmed/shin-scheduling",
+      "minPlatformVersion": "0.1.0",
+      "dependencies": [],
+      "permissions": ["scheduling.read", "scheduling.write", "scheduling.admin"],
+      "routes": [{ "path": "/modules/scheduling", "label": "Scheduling" }],
+      "events": {
+        "publishes": ["scheduling.appointment.created", "scheduling.appointment.updated"],
+        "subscribes": ["patient.record.created", "practitioner.created"]
+      },
+      "dashboard": {
+        "cards": [
+          { "label": "Scheduling Queue", "value": "57", "detail": "Appointments today", "tone": "default", "href": "/modules/scheduling" }
+        ],
+        "sections": [
+          {
+            "title": "Scheduling Flow",
+            "description": "Appointment demand, provider availability, and queue pressure.",
+            "href": "/modules/scheduling",
+            "widgets": [
+              { "label": "Today's Appointments", "value": "57", "detail": "11 pending check-in", "tone": "default", "href": "/modules/scheduling" },
+              { "label": "Waitlist", "value": "14", "detail": "3 high-priority slots", "tone": "warning", "href": "/modules/scheduling" },
+              { "label": "Reminders", "value": "92%", "detail": "Delivery success rate", "tone": "success", "href": "/modules/scheduling" }
+            ]
+          }
+        ],
+        "alerts": [
+          { "severity": "warning", "title": "Provider availability gaps", "body": "Three appointment types need updated availability windows.", "href": "/modules/scheduling" }
+        ],
+        "quickActions": [
+          { "label": "Open scheduling", "href": "/modules/scheduling" }
+        ]
+      },
+      "setupChecklist": ["Configure appointment types", "Configure provider availability", "Configure reminder rules"]
+    },
+    {
+      "moduleId": "ehr",
+      "name": "EHR/EMR",
+      "version": "0.1.0",
+      "category": "clinical",
+      "description": "Patient chart foundation, encounters, notes, problems, medications, and clinical documentation.",
+      "repositoryUrl": "https://github.com/interopmed/shin-ehr",
+      "minPlatformVersion": "0.1.0",
+      "dependencies": [],
+      "permissions": ["ehr.read", "ehr.write", "ehr.admin"],
+      "routes": [
+        { "path": "/modules/ehr", "label": "EHR Overview", "detail": "Clinical chart", "icon": "module", "sidebarSection": "Patients" },
+        { "path": "/modules/ehr/encounters", "label": "Encounters", "detail": "Visits and episodes", "icon": "activity", "sidebarSection": "Patients" },
+        { "path": "/modules/ehr/notes", "label": "Clinical Notes", "detail": "Documentation", "icon": "file", "sidebarSection": "Patients" },
+        { "path": "/modules/ehr/problems", "label": "Problems", "detail": "Problem list", "icon": "activity", "sidebarSection": "Patients" },
+        { "path": "/modules/ehr/medications", "label": "Medications", "detail": "Medication list", "icon": "file", "sidebarSection": "Patients" }
+      ],
+      "events": {
+        "publishes": ["encounter.created", "clinical-note.created"],
+        "subscribes": ["patient.record.created"]
+      },
+      "dashboard": {
+        "cards": [
+          { "label": "Open Encounters", "value": "18", "detail": "6 need documentation", "tone": "warning", "href": "/modules/ehr/encounters" }
+        ],
+        "sections": [
+          {
+            "title": "EHR Clinical Workbench",
+            "description": "Patient chart activity, encounters, documentation, and medication review.",
+            "href": "/modules/ehr",
+            "widgets": [
+              { "label": "Open Encounters", "value": "18", "detail": "6 need documentation", "tone": "warning", "href": "/modules/ehr/encounters" },
+              { "label": "Clinical Notes", "value": "42", "detail": "12 unsigned notes", "tone": "warning", "href": "/modules/ehr/notes" },
+              { "label": "Medication Reviews", "value": "9", "detail": "Active reconciliation tasks", "tone": "default", "href": "/modules/ehr/medications" }
+            ]
+          }
+        ],
+        "quickActions": [
+          { "label": "Review encounters", "href": "/modules/ehr/encounters" },
+          { "label": "Open clinical notes", "href": "/modules/ehr/notes" }
+        ]
+      },
+      "setupChecklist": ["Configure chart sections", "Configure clinical roles"]
+    },
+    {
+      "moduleId": "lab",
+      "name": "Lab/LIS",
+      "version": "0.1.0",
+      "category": "lab",
+      "description": "Lab orders, specimens, analyzer feeds, abnormal flags, results, and clinician review.",
+      "repositoryUrl": "https://github.com/interopmed/shin-lab",
+      "minPlatformVersion": "0.1.0",
+      "dependencies": [],
+      "permissions": ["lab.read", "lab.write", "lab.admin"],
+      "routes": [{ "path": "/modules/lab", "label": "Lab/LIS" }],
+      "events": {
+        "publishes": ["lab.order.created", "lab.result.finalized"],
+        "subscribes": ["patient.record.created", "encounter.created"]
+      },
+      "database": {
+        "schema": "public",
+        "migrations": ["db/migrations/001_lab_core.sql", "db/migrations/002_patient_table_reference.sql"]
+      },
+      "dashboard": {
+        "cards": [
+          { "label": "Critical Results", "value": "4", "detail": "Need clinician review", "tone": "critical", "href": "/modules/lab/results" }
+        ],
+        "sections": [
+          {
+            "title": "Lab Operations",
+            "description": "Orders, specimens, analyzers, and result review queues.",
+            "href": "/modules/lab",
+            "widgets": [
+              { "label": "Pending Orders", "value": "31", "detail": "7 STAT orders", "tone": "warning", "href": "/modules/lab/orders" },
+              { "label": "Specimens", "value": "86", "detail": "12 awaiting collection", "tone": "default", "href": "/modules/lab/specimens" },
+              { "label": "Critical Results", "value": "4", "detail": "Need clinician review", "tone": "critical", "href": "/modules/lab/results" }
+            ]
+          }
+        ],
+        "alerts": [
+          { "severity": "critical", "title": "Critical lab result review", "body": "Four finalized results are awaiting clinician acknowledgement.", "href": "/modules/lab/results" }
+        ],
+        "quickActions": [
+          { "label": "Review lab results", "href": "/modules/lab/results" }
+        ]
+      },
+      "setupChecklist": ["Configure specimen types", "Configure lab result review queue"]
+    },
+    {
+      "moduleId": "billing",
+      "name": "Billing",
+      "version": "0.1.0",
+      "category": "billing",
+      "description": "Charge capture, invoice status, payment workflow, and billing reports.",
+      "repositoryUrl": "https://github.com/interopmed/shin-billing",
+      "minPlatformVersion": "0.1.0",
+      "dependencies": [],
+      "permissions": ["billing.read", "billing.write", "billing.admin"],
+      "routes": [{ "path": "/modules/billing", "label": "Billing" }],
+      "events": {
+        "publishes": ["billing.invoice.created", "billing.payment.posted"],
+        "subscribes": ["encounter.created", "scheduling.appointment.created"]
+      },
+      "dashboard": {
+        "cards": [
+          { "label": "Claim Work Queue", "value": "23", "detail": "5 need coding review", "tone": "warning", "href": "/modules/billing" }
+        ],
+        "sections": [
+          {
+            "title": "Revenue Cycle",
+            "description": "Charge capture, claim readiness, invoices, and payment workflow.",
+            "href": "/modules/billing",
+            "widgets": [
+              { "label": "Open Claims", "value": "23", "detail": "5 need coding review", "tone": "warning", "href": "/modules/billing" },
+              { "label": "Unposted Payments", "value": "12", "detail": "Awaiting reconciliation", "tone": "default", "href": "/modules/billing" },
+              { "label": "Denial Risk", "value": "3", "detail": "High-risk accounts", "tone": "critical", "href": "/modules/billing" }
+            ]
+          }
+        ],
+        "quickActions": [
+          { "label": "Open billing", "href": "/modules/billing" }
+        ]
+      },
+      "setupChecklist": ["Configure billing profile", "Configure charge rules"]
+    }
+  ]
+}

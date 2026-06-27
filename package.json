@@ -1,0 +1,43 @@
+{
+  "name": "shin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SHIN Node shell for installing and managing modular InteropMed healthcare apps",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "next build frontend",
+    "start": "next start frontend",
+    "frontend:dev": "next dev frontend",
+    "frontend:build": "next build frontend",
+    "frontend:start": "next start frontend",
+    "backend:dev": "py -3 backend/manage.py runserver 127.0.0.1:8000",
+    "backend:check": "py -3 backend/manage.py check",
+    "setup": "node scripts/shin-node.mjs setup",
+    "modules:list": "node scripts/shin-node.mjs modules:list",
+    "modules:available": "node scripts/shin-node.mjs modules:available",
+    "modules:install": "node scripts/shin-node.mjs modules:install",
+    "modules:enable": "node scripts/shin-node.mjs modules:enable",
+    "modules:disable": "node scripts/shin-node.mjs modules:disable",
+    "modules:uninstall": "node scripts/shin-node.mjs modules:uninstall",
+    "modules:health": "node scripts/shin-node.mjs modules:health",
+    "db:setup": "node scripts/shin-db.mjs setup",
+    "db:modules": "node scripts/shin-db.mjs modules",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "next": "^15.5.18",
+    "pg": "^8.22.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "shin-platform-core": "file:../shin-platform-core"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5",
+    "vitest": "^4.1.7"
+  }
+}

@@ -1,32 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import process from "node:process";
 import pg from "pg";
+import { appDir, assertPathInside, checksum, loadEnvFile, readJson } from "./utils.mjs";
 
 const { Client } = pg;
-const rootDir = process.cwd();
+const rootDir = appDir;
 const statePath = path.join(rootDir, ".shin-node", "state.json");
 const registryPath = path.join(rootDir, "config", "approved-modules.json");
-
-function loadEnvFile(fileName) {
-  const filePath = path.join(rootDir, fileName);
-
-  if (!existsSync(filePath)) {
-    return;
-  }
-
-  for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) {
-      continue;
-    }
-
-    const [key, ...valueParts] = trimmed.split("=");
-    const value = valueParts.join("=").trim().replace(/^["']|["']$/g, "");
-    process.env[key.trim()] ??= value;
-  }
-}
 
 function quoteIdentifier(value) {
   return `"${value.replaceAll('"', '""')}"`;
@@ -75,21 +56,6 @@ async function runSqlFile(databaseUrl, fileName) {
   });
 
   console.log(`Applied ${fileName}`);
-}
-
-function checksum(value) {
-  return createHash("sha256").update(value).digest("hex");
-}
-
-function assertPathInside(parentDir, childPath) {
-  const relative = path.relative(parentDir, childPath);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`Refusing to read module migration outside module root: ${childPath}`);
-  }
-}
-
-function readJson(filePath) {
-  return JSON.parse(readFileSync(filePath, "utf8"));
 }
 
 function localModuleRoot(moduleId) {

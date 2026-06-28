@@ -323,3 +323,36 @@ class ProviderPerson(models.Model):
 
   def __str__(self) -> str:
     return self.full_name
+
+
+class Facility(models.Model):
+    TYPE_CHOICES = [
+        ("Hospital", "Hospital"),
+        ("Outpatient", "Outpatient"),
+        ("Diagnostic Lab", "Diagnostic Lab"),
+        ("Telehealth", "Telehealth"),
+        ("Other", "Other"),
+    ]
+
+    STATUS_CHOICES = [
+        ("Operational", "Operational"),
+        ("Maintenance", "Maintenance"),
+        ("Offline", "Offline"),
+    ]
+
+    name = models.CharField(max_length=200)
+    type = models.CharField(max_length=50, choices=TYPE_CHOICES, default="Hospital")
+    location = models.CharField(max_length=200, blank=True, default="")
+    departments = models.IntegerField(default=0)
+    rooms = models.IntegerField(default=0)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="Operational")
+    occupancy = models.CharField(max_length=10, default="0%")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "facility"
+
+    def __str__(self) -> str:
+        return self.name

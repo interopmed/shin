@@ -4,6 +4,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
   DashboardSummaryView,
   DoctorViewSet,
+  FacilityDepartmentView,
+  FacilityDetailView,
   HealthView,
   IdentityUserAssignmentView,
   IdentityWorkView,
@@ -12,6 +14,7 @@ from .views import (
   PatientViewSet,
   SettingsItemView,
   SettingsView,
+  FacilityListView,
 )
 
 router = DefaultRouter()
@@ -28,4 +31,8 @@ urlpatterns = [
   path("mpi/", MpiView.as_view()),
   path("patients/<str:patient_id>/consent/", PatientConsentView.as_view()),
   path("", include(router.urls)),
+  # New facility endpoint for the Facilities page
+  path("facilities/", FacilityListView.as_view()),
+  path("facilities/<int:facility_id>", FacilityDetailView.as_view()),
+  path("facilities/<int:facility_id>/departments", FacilityDepartmentView.as_view()),
 ]

@@ -2,10 +2,25 @@
   "name": "shin-frontend",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "next": "^15.5.18",
+    "pg": "^8.22.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5",
+    "vitest": "^4.1.7"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "lint": "next lint",
     "test": "vitest run"
   }
 }

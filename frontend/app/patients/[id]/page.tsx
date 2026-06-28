@@ -33,15 +33,14 @@ export default async function PatientProfilePage({ params }: { params: Promise<{
 
   return (
     <section className="patient-profile-page">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/patients">Patients</Link>
+        <span className="separator">/</span>
+        <span className="current">{patient.name}</span>
+      </nav>
+
       <div className="patient-profile-card">
         <header className="profile-view-header">
-          <div className="profile-breadcrumb">
-            <span>Patient Profile</span>
-            <span>&gt;</span>
-            <span>View</span>
-            <span>&gt;</span>
-            <strong>{patient.name}</strong>
-          </div>
           <div className="profile-view-actions">
             <Link className="profile-back-button" href="/patients">
               &lt; Back

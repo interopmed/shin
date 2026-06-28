@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 type FoundationPageProps = {
   eyebrow: string;
   title: string;
@@ -16,6 +18,11 @@ type FoundationPageProps = {
 export function FoundationPage({ eyebrow, title, description, stats, sections }: FoundationPageProps) {
   return (
     <div className="stack">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="separator">/</span>
+        <span className="current">{title}</span>
+      </nav>
       <header className="page-header">
         <div>
           <div className="eyebrow">{eyebrow}</div>

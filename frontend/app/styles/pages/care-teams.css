@@ -1,0 +1,358 @@
+﻿/* Care team page */
+.care-team-page {
+  color: #111827;
+}
+
+.care-team-card {
+  background: #ffffff;
+  border: 1px solid #d5dde8;
+  border-radius: 16px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.care-team-header {
+  align-items: center;
+  border-bottom: 1px solid #e3e9f1;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding: 18px 24px 16px;
+}
+
+.care-team-header h1 {
+  font-size: 28px;
+  font-weight: 900;
+  margin: 0 0 5px;
+}
+
+.care-team-header p {
+  color: #475467;
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.care-team-actions,
+.care-team-panel-header,
+.care-team-tools {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.care-team-primary-button,
+.care-team-secondary-button,
+.care-team-tools button {
+  align-items: center;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 13px;
+}
+
+.care-team-primary-button {
+  background: #2f66d9;
+  border: 1px solid #2457c5;
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.22);
+  color: #ffffff;
+}
+
+.care-team-secondary-button,
+.care-team-tools button {
+  background: #ffffff;
+  border: 1px solid #ccd6e2;
+  color: #111827;
+}
+
+.care-team-secondary-button.compact {
+  min-height: 34px;
+}
+
+.care-team-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 0 24px;
+}
+
+.care-team-summary div {
+  border-bottom: 1px solid #d5dde8;
+  border-right: 1px solid #d5dde8;
+  min-height: 106px;
+  padding: 14px;
+}
+
+.care-team-summary div:first-child {
+  border-left: 1px solid #d5dde8;
+}
+
+.care-team-summary span,
+.care-team-summary p {
+  color: #111827;
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.care-team-summary strong {
+  display: block;
+  font-size: 32px;
+  font-weight: 900;
+  margin: 8px 0 6px;
+}
+
+.care-team-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  padding: 16px 24px 24px;
+}
+
+.care-team-main,
+.care-team-side {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.care-team-panel {
+  border: 1px solid #d5dde8;
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.care-team-panel > h2,
+.care-team-panel-header {
+  padding: 14px 16px;
+}
+
+.care-team-panel h2 {
+  font-size: 20px;
+  font-weight: 900;
+  margin: 0;
+}
+
+.care-team-panel-header {
+  justify-content: space-between;
+}
+
+.care-team-tools {
+  flex-wrap: wrap;
+}
+
+.care-team-tools label {
+  display: block;
+  min-width: 220px;
+  position: relative;
+}
+
+.care-team-tools label span {
+  color: #667085;
+  font-size: 13px;
+  left: 13px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.care-team-tools input {
+  border: 1px solid #ccd6e2;
+  border-radius: 8px;
+  height: 34px;
+  outline: none;
+  padding: 0 12px 0 36px;
+  width: 100%;
+}
+
+.care-team-table-wrap {
+  overflow-x: auto;
+}
+
+.care-team-table {
+  border-collapse: collapse;
+  min-width: 980px;
+  width: 100%;
+}
+
+.care-team-table th,
+.care-team-table td {
+  border-top: 1px solid #e1e7ef;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 11px 12px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.care-team-table th {
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.care-team-provider {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.care-team-avatar {
+  border-radius: 999px;
+  display: inline-block;
+  height: 34px;
+  width: 34px;
+}
+
+.care-team-avatar.blue {
+  background: linear-gradient(180deg, #d8e8fb, #2d6a9f);
+}
+
+.care-team-avatar.warm {
+  background: linear-gradient(180deg, #f4c8a6, #8b5a42);
+}
+
+.care-team-avatar.green {
+  background: linear-gradient(180deg, #b7eee7, #0f766e);
+}
+
+.care-team-avatar.gray {
+  background: linear-gradient(180deg, #e5e7eb, #64748b);
+}
+
+.care-team-avatar.dark {
+  background: linear-gradient(180deg, #d9c3a8, #354152);
+}
+
+.care-team-status {
+  background: #e8f0fb;
+  border-radius: 7px;
+  color: #14385f;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 6px 9px;
+}
+
+.care-team-menu-button {
+  background: transparent;
+  border: 0;
+  color: #111827;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.care-team-assignment-list {
+  display: grid;
+}
+
+.care-team-assignment {
+  align-items: center;
+  border-top: 1px solid #e1e7ef;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 13px 16px;
+}
+
+.care-team-assignment strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.care-team-assignment p {
+  color: #475467;
+  font-size: 13px;
+  font-weight: 800;
+  margin: 3px 0 0;
+}
+
+.care-team-assignment span {
+  background: #fff4cc;
+  border-radius: 7px;
+  color: #7a4d00;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 6px 9px;
+}
+
+.care-team-assignment button {
+  background: #cdeccd;
+  border: 0;
+  border-radius: 7px;
+  color: #11622f;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.care-team-coverage {
+  display: grid;
+  gap: 14px;
+  padding: 0 16px 16px;
+}
+
+.care-team-coverage span,
+.care-team-coverage p {
+  color: #475467;
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.care-team-coverage strong {
+  display: block;
+  font-size: 24px;
+  font-weight: 900;
+  margin: 3px 0 6px;
+}
+
+.care-team-coverage i {
+  background: #e1e7ef;
+  border-radius: 999px;
+  display: block;
+  height: 8px;
+  overflow: hidden;
+}
+
+.care-team-coverage b {
+  background: #2f66d9;
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+
+.care-team-notes {
+  display: grid;
+}
+
+.care-team-notes div {
+  border-top: 1px solid #e1e7ef;
+  padding: 12px 16px;
+}
+
+.care-team-notes strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.care-team-notes p {
+  color: #475467;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.4;
+  margin: 4px 0 0;
+}
+

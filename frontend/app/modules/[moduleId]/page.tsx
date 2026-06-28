@@ -23,6 +23,14 @@ export default async function InstalledModulePage({ params }: ModulePageProps) {
 
   return (
     <div className="stack">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="separator">/</span>
+        <Link href="/modules">Modules</Link>
+        <span className="separator">/</span>
+        <span className="current">{module.name}</span>
+      </nav>
+
       <header className="page-header">
         <div>
           <div className="eyebrow">Installed Module</div>

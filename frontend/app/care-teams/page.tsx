@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const teamMembers = [
   {
     name: "Dr. Adam Bennett",
@@ -61,6 +63,12 @@ const coverage = [
 export default function CareTeamsPage() {
   return (
     <section className="care-team-page">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="separator">/</span>
+        <span className="current">Care Teams</span>
+      </nav>
+
       <div className="care-team-card">
         <header className="care-team-header">
           <div>

@@ -1,13 +1,10 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { appDir, assertPathInside, checksum, loadEnvFile, readJson } from "./utils.mjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const appDir = path.resolve(path.dirname(__filename), "..");
 const stateDir = path.join(appDir, ".shin-node");
 const statePath = path.join(stateDir, "state.json");
 const modulesDir = path.join(stateDir, "modules");
@@ -20,46 +17,12 @@ const actor = {
   display: "SHIN Node CLI",
 };
 
-function readJson(filePath) {
-  return JSON.parse(readFileSync(filePath, "utf8"));
-}
-
-function loadEnvFile(fileName) {
-  const filePath = path.join(appDir, fileName);
-
-  if (!existsSync(filePath)) {
-    return;
-  }
-
-  for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) {
-      continue;
-    }
-
-    const [key, ...valueParts] = trimmed.split("=");
-    const value = valueParts.join("=").trim().replace(/^["']|["']$/g, "");
-    process.env[key.trim()] ??= value;
-  }
-}
-
 function writeJson(filePath, value) {
   writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 function relativeToApp(filePath) {
   return path.relative(appDir, filePath).split(path.sep).join("/");
-}
-
-function assertPathInside(parentDir, childPath) {
-  const relative = path.relative(parentDir, childPath);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`Refusing to write outside ${relativeToApp(parentDir)}: ${childPath}`);
-  }
-}
-
-function checksum(value) {
-  return createHash("sha256").update(value).digest("hex");
 }
 
 async function withDbClient(task) {

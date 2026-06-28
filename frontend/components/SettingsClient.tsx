@@ -136,6 +136,12 @@ export default function SettingsClient({ initialSettings, moduleContributions }:
 
   return (
     <section className="system-settings-page">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="separator">/</span>
+        <span className="current">Settings</span>
+      </nav>
+
       <div className="system-settings-card">
         <header className="system-settings-header">
           <div>

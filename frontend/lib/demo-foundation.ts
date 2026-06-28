@@ -1,5 +1,5 @@
-import { createPlatformCore } from "shin-platform-core";
-import type { ActorRef, CoreEvent } from "shin-platform-core";
+import { createPlatformCore } from "./platform-core/platform-core";
+import type { ActorRef, CoreEvent } from "./platform-core/types";
 
 const actor: ActorRef = {
   actorId: "shin-demo",

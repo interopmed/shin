@@ -1,16 +1,8 @@
-import fs from "node:fs";
 import { Client } from "pg";
+import { loadEnvFile } from "./utils.mjs";
 
-const envPath = new URL("../.env.local", import.meta.url);
-for (const line of fs.readFileSync(envPath, "utf8").split(/\r?\n/)) {
-  const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) {
-    continue;
-  }
-
-  const [key, ...rest] = trimmed.split("=");
-  process.env[key.trim()] ??= rest.join("=").trim().replace(/^["']|["']$/g, "");
-}
+loadEnvFile(".env.local");
+loadEnvFile(".env");
 
 const connectionString = process.env.SHIN_DATABASE_URL ?? process.env.DATABASE_URL;
 

@@ -7,8 +7,9 @@ function startProcess(label, command, args, options = {}) {
   const child = spawn(command, args, {
     cwd: process.cwd(),
     env: process.env,
-    shell: true,
-    stdio: ["ignore", "pipe", "pipe"],
+    shell: false,
+    // Keep stdin attached so long-running dev servers stay alive.
+    stdio: ["inherit", "pipe", "pipe"],
     ...options,
   });
 
@@ -34,17 +35,17 @@ function startProcess(label, command, args, options = {}) {
   return child;
 }
 
-const frontend = startProcess(
-  "frontend",
-  "npm",
-  ["run", "frontend:dev"],
-);
+function startNpmScript(label, scriptName) {
+  if (isWindows) {
+    return startProcess(label, "cmd.exe", ["/d", "/s", "/c", `npm run ${scriptName}`]);
+  }
 
-const backend = startProcess(
-  "backend",
-  "npm",
-  ["run", "backend:dev"],
-);
+  return startProcess(label, "npm", ["run", scriptName]);
+}
+
+const frontend = startNpmScript("frontend", "frontend:dev");
+
+const backend = startNpmScript("backend", "backend:dev");
 
 const children = [frontend, backend];
 let shuttingDown = false;

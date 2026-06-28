@@ -27,6 +27,16 @@ const investigations = [
 export default function PatientAuditPage() {
   return (
     <section className="audit-page patient-audit-page">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="separator">/</span>
+        <Link href="/patients">Patients</Link>
+        <span className="separator">/</span>
+        <Link href="/patients/P10001">Bessie Cooper</Link>
+        <span className="separator">/</span>
+        <span className="current">Audit History</span>
+      </nav>
+
       <div className="audit-card">
         <header className="audit-header">
           <div>

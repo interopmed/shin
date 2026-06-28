@@ -1,0 +1,21 @@
+﻿/* Design tokens */
+:root {
+  --background: #f1f5f9;
+  --foreground: #020617;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --panel: #ffffff;
+  --panel-soft: #f8fafc;
+  --primary: #0f766e;
+  --primary-strong: #0f5f59;
+  --success: #047857;
+  --success-bg: #ecfdf5;
+  --warning: #b45309;
+  --warning-bg: #fffbeb;
+  --danger: #b42318;
+  --danger-bg: #fee4e2;
+}
+
+* {
+  box-sizing: border-box;
+}

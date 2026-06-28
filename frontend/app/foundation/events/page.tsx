@@ -21,6 +21,12 @@ const moduleFilters = ["SHIN Core", "EHR Clinical", "MPI"];
 export default function SystemEventViewerPage() {
   return (
     <section className="events-page">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="separator">/</span>
+        <span className="current">System Events</span>
+      </nav>
+
       <div className="events-card">
         <header className="events-header">
           <h1>System Event Viewer</h1>

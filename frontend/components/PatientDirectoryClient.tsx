@@ -228,6 +228,12 @@ export default function PatientDirectoryClient({
 
   return (
     <section className="patient-list-page">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="separator">/</span>
+        <span className="current">Patients</span>
+      </nav>
+
       <div className="patient-list-card">
         <header className="patient-list-header">
           <div>

@@ -17,6 +17,14 @@ export default async function MasterPatientIndexPage() {
 
   return (
     <section className="mpi-page">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="separator">/</span>
+        <Link href="/patients">Patients</Link>
+        <span className="separator">/</span>
+        <span className="current">MPI</span>
+      </nav>
+
       <div className="mpi-card">
         <header className="mpi-header">
           <div>

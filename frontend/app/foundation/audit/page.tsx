@@ -29,6 +29,12 @@ const templates = [
 export default function AuditLogPage() {
   return (
     <section className="audit-page">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="separator">/</span>
+        <span className="current">Audit Log</span>
+      </nav>
+
       <div className="audit-card">
         <header className="audit-header">
           <h1>Security, Privacy, and Compliance: Technical/Security Audit Log</h1>

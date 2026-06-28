@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime
+import json
 
 from django.db import connection, transaction
 from django.db.models import Q
@@ -13,6 +14,7 @@ from rest_framework.views import APIView
 from .models import (
   Doctor,
   Employee,
+  Facility,
   IdentityGroup,
   IdentityPermission,
   IdentityRole,
@@ -837,3 +839,225 @@ class SettingsItemView(APIView):
 
     setting.save(update_fields=["value", "detail", "tone", "updated_at"])
     return Response(_setting_record(setting))
+
+
+# ---------------------------------------------------------------------------
+# Facility endpoints
+# ---------------------------------------------------------------------------
+class FacilityListView(APIView):
+    """List facilities from the database and accept new facility creation."""
+
+    permission_classes = []  # public endpoint
+
+    def _facility_record(self, facility) -> dict:
+        return {
+            "id": str(facility.pk),
+            "name": facility.name,
+            "type": facility.type,
+            "location": facility.location,
+            "departments": facility.departments,
+            "rooms": facility.rooms,
+            "status": facility.status,
+            "occupancy": facility.occupancy,
+        }
+
+    def get(self, request):
+        facilities = Facility.objects.all().order_by("name")
+        return Response([self._facility_record(f) for f in facilities])
+
+    @transaction.atomic
+    def post(self, request):
+        """Create a new facility."""
+        name = (request.data.get("name") or "").strip()
+        if not name:
+            return Response({"detail": "Facility name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            departments = int(request.data.get("departments", 0) or 0)
+            rooms = int(request.data.get("rooms", 0) or 0)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "Departments and rooms must be whole numbers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        occupancy = str(request.data.get("occupancy", "0%")).strip() or "0%"
+        if not occupancy.endswith("%"):
+            occupancy = f"{occupancy}%"
+
+        facility = Facility.objects.create(
+            name=name,
+            type=request.data.get("type", "Hospital"),
+            location=(request.data.get("location") or "").strip(),
+            departments=departments,
+            rooms=rooms,
+            status=request.data.get("status", "Operational"),
+            occupancy=occupancy,
+        )
+        return Response(self._facility_record(facility), status=status.HTTP_201_CREATED)
+
+
+class FacilityDetailView(APIView):
+    """Update a single facility record."""
+
+    permission_classes = []
+
+    def _facility_record(self, facility) -> dict:
+        return {
+            "id": str(facility.pk),
+            "name": facility.name,
+            "type": facility.type,
+            "location": facility.location,
+            "departments": facility.departments,
+            "rooms": facility.rooms,
+            "status": facility.status,
+            "occupancy": facility.occupancy,
+        }
+
+    @transaction.atomic
+    def put(self, request, facility_id: str):
+        facility = Facility.objects.filter(pk=facility_id).first()
+        if not facility:
+            return Response({"detail": "Facility not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        name = (request.data.get("name") or "").strip()
+        if not name:
+            return Response({"detail": "Facility name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            departments = int(request.data.get("departments", 0) or 0)
+            rooms = int(request.data.get("rooms", 0) or 0)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "Departments and rooms must be whole numbers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        occupancy = str(request.data.get("occupancy", "0%")).strip() or "0%"
+        if not occupancy.endswith("%"):
+            occupancy = f"{occupancy}%"
+
+        facility.name = name
+        facility.type = request.data.get("type", "Hospital")
+        facility.location = (request.data.get("location") or "").strip()
+        facility.departments = departments
+        facility.rooms = rooms
+        facility.status = request.data.get("status", "Operational")
+        facility.occupancy = occupancy
+        facility.updated_at = timezone.now()
+        facility.save(
+            update_fields=[
+                "name",
+                "type",
+                "location",
+                "departments",
+                "rooms",
+                "status",
+                "occupancy",
+                "updated_at",
+            ]
+        )
+
+        return Response(self._facility_record(facility))
+
+
+class FacilityDepartmentView(APIView):
+    """Get or update structured departments for a facility."""
+
+    permission_classes = []
+
+    def _setting_key(self, facility_id: str) -> str:
+        return f"facility.departments.{facility_id}"
+
+    def _normalize_departments(self, raw_departments) -> list[dict]:
+        if not isinstance(raw_departments, list):
+            return []
+
+        normalized: list[dict] = []
+        for row in raw_departments:
+            if not isinstance(row, dict):
+                continue
+
+            name = str(row.get("name") or "").strip()
+            if not name:
+                continue
+
+            normalized.append(
+                {
+                    "name": name,
+                    "lead": str(row.get("lead") or "").strip() or "Unassigned",
+                    "capacity": str(row.get("capacity") or "").strip() or "Not defined",
+                    "status": str(row.get("status") or "").strip() or "Ready",
+                }
+            )
+
+        return normalized
+
+    def get(self, request, facility_id: str):
+        facility = Facility.objects.filter(pk=facility_id).first()
+        if not facility:
+            return Response({"detail": "Facility not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        setting = SystemSetting.objects.filter(key=self._setting_key(facility_id)).first()
+        if setting and setting.value:
+            try:
+                parsed = json.loads(setting.value)
+                departments = self._normalize_departments(parsed)
+            except (TypeError, ValueError):
+                departments = []
+        else:
+            departments = []
+
+        if not departments and facility.departments > 0:
+            departments = [
+                {
+                    "name": f"Department {index + 1}",
+                    "lead": "Unassigned",
+                    "capacity": "Not defined",
+                    "status": "Ready",
+                }
+                for index in range(facility.departments)
+            ]
+
+        return Response({"departments": departments})
+
+    @transaction.atomic
+    def put(self, request, facility_id: str):
+        facility = Facility.objects.filter(pk=facility_id).first()
+        if not facility:
+            return Response({"detail": "Facility not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        departments = self._normalize_departments(request.data.get("departments", []))
+        if len(departments) > 100:
+            return Response({"detail": "Department limit exceeded (max 100)."}, status=status.HTTP_400_BAD_REQUEST)
+
+        payload = json.dumps(departments)
+        key = self._setting_key(facility_id)
+
+        setting = SystemSetting.objects.filter(key=key).first()
+        if setting:
+            setting.value = payload
+            setting.detail = "Structured department configuration for facility management."
+            setting.kind = "json"
+            setting.tone = "default"
+            setting.is_editable = True
+            setting.updated_at = timezone.now()
+            setting.save(update_fields=["value", "detail", "kind", "tone", "is_editable", "updated_at"])
+        else:
+            SystemSetting.objects.create(
+                section="Facilities",
+                key=key,
+                label=f"Facility {facility_id} Departments",
+                value=payload,
+                detail="Structured department configuration for facility management.",
+                kind="json",
+                tone="default",
+                sort_order=0,
+                is_editable=True,
+            )
+
+        facility.departments = len(departments)
+        facility.updated_at = timezone.now()
+        facility.save(update_fields=["departments", "updated_at"])
+
+        return Response({"departments": departments, "count": len(departments)})

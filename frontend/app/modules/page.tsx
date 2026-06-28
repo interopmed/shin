@@ -1,3 +1,4 @@
+import Link from "next/link";
 import registry from "../../config/approved-modules.json";
 import { getShinNodeState } from "../../lib/node-state";
 import {
@@ -34,6 +35,12 @@ export default function ModulesPage() {
 
   return (
     <div className="stack">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="separator">/</span>
+        <span className="current">Modules</span>
+      </nav>
+
       <header className="page-header">
         <div>
           <div className="eyebrow">Module Registry</div>

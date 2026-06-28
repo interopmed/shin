@@ -46,7 +46,7 @@ export function getNavigationGroups(): NavigationGroup[] {
     {
       label: "Institute",
       items: [
-        { label: "Operations Dashboard", href: "/dashboard", detail: "Command center", icon: "dashboard" },
+        { label: "Dashboard", href: "/dashboard", detail: "Command center", icon: "dashboard" },
         ...(canAccess(user, ["provider.read"]) ? [{ label: "Care Teams", href: "/care-teams", detail: "Provider directory", icon: "users" }] : []),
         ...(canAccess(user, ["facility.read"]) ? [{ label: "Facilities", href: "/facilities", detail: "Sites and locations", icon: "building" }] : []),
       ],

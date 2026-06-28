@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   getIdentityWork,
@@ -171,6 +172,12 @@ export default function IdentityWorkClient() {
 
   return (
     <section className="identity-work-page">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="separator">/</span>
+        <span className="current">Identity &amp; Access</span>
+      </nav>
+
       <div className="page-header">
         <div>
           <div className="eyebrow">Foundation</div>

@@ -131,13 +131,16 @@ export default function PatientConsentClient({ consent }: PatientConsentClientPr
 
   return (
     <section className="consent-page">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/patients">Patients</Link>
+        <span className="separator">/</span>
+        <Link href={`/patients/${consent.patientId}`}>{consent.patientName}</Link>
+        <span className="separator">/</span>
+        <span className="current">Consent & Privacy</span>
+      </nav>
+
       <div className="consent-card">
         <header className="consent-header">
-          <div className="consent-breadcrumb">
-            <span>{consent.patientName}</span>
-            <span>&gt;</span>
-            <strong>Consent & Privacy Management</strong>
-          </div>
           <div className="consent-actions">
             <button className="consent-download-button" onClick={downloadPolicy} type="button">
               <span aria-hidden="true" className="consent-button-icon">

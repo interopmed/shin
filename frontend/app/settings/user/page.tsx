@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import RoleAccessSwitcher from "../../../components/RoleAccessSwitcher";
 import { getActiveUserContext, roleLabels } from "../../../lib/node-state";
@@ -44,6 +45,14 @@ export default function UserSettingsPage() {
 
   return (
     <section className="user-settings-page">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/dashboard">Dashboard</Link>
+        <span className="separator">/</span>
+        <Link href="/settings">Settings</Link>
+        <span className="separator">/</span>
+        <span className="current">User Profile</span>
+      </nav>
+
       <div className="user-settings-card">
         <header className="user-settings-header">
           <h1>SHIN User Settings</h1>

@@ -6,11 +6,11 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "build": "next build frontend",
-    "start": "next start frontend",
-    "frontend:dev": "next dev frontend",
-    "frontend:build": "next build frontend",
-    "frontend:start": "next start frontend",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "frontend:start": "npm --prefix frontend run start",
     "backend:dev": "py -3 backend/manage.py runserver 127.0.0.1:8000",
     "backend:check": "py -3 backend/manage.py check",
     "setup": "node scripts/shin-node.mjs setup",
@@ -26,17 +26,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "next": "^15.5.18",
-    "pg": "^8.22.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "shin-platform-core": "file:../shin-platform-core"
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "typescript": "^5",
     "vitest": "^4.1.7"
   }

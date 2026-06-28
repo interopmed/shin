@@ -82,15 +82,16 @@ export default function PatientEditClient({ patient, doctors }: PatientEditClien
 
   return (
     <section className="patient-profile-page edit-profile-page">
+      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/patients">Patients</Link>
+        <span className="separator">/</span>
+        <Link href={`/patients/${patient.id}`}>{patient.name}</Link>
+        <span className="separator">/</span>
+        <span className="current">Edit</span>
+      </nav>
+
       <div className="patient-profile-card edit-profile-card">
         <header className="profile-view-header">
-          <div className="profile-breadcrumb">
-            <span>Patient Profile</span>
-            <span>&gt;</span>
-            <span>Edit</span>
-            <span>&gt;</span>
-            <strong>{patient.name}</strong>
-          </div>
           <div className="profile-view-actions">
             <Link className="profile-back-button" href={`/patients/${patient.id}`}>
               Cancel

@@ -82,9 +82,6 @@
 .audit-side {
   display: grid;
   gap: 14px;
-}
-
-.audit-side {
   align-content: start;
 }
 

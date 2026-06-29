@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 
 from django.db import connection, transaction
@@ -27,6 +27,8 @@ from .models import (
   ProviderOrganization,
   ProviderPerson,
   SystemSetting,
+  AuditEvent,
+  ThreatAlert,
 )
 from .serializers import DoctorSerializer, PatientConsentPreferenceSerializer, PatientSerializer
 
@@ -1061,3 +1063,148 @@ class FacilityDepartmentView(APIView):
         facility.save(update_fields=["departments", "updated_at"])
 
         return Response({"departments": departments, "count": len(departments)})
+
+
+# Audit log endpoints
+# ---------------------------------------------------------------------------
+class AuditEventListView(APIView):
+    """List audit events with optional search/filtering, and support posting new events."""
+    permission_classes = []
+
+    def get(self, request):
+        queryset = AuditEvent.objects.all().order_by("-timestamp")
+        
+        # Filtering by user_id/node
+        user_id = request.query_params.get("user_id")
+        if user_id:
+            queryset = queryset.filter(user_id__iexact=user_id)
+
+        # Filtering by action
+        action = request.query_params.get("action")
+        if action:
+            queryset = queryset.filter(action__iexact=action)
+
+        # Filtering by severity
+        severity = request.query_params.get("severity")
+        if severity:
+            queryset = queryset.filter(severity__iexact=severity)
+
+        # Filtering by source_system
+        source_system = request.query_params.get("source_system")
+        if source_system:
+            queryset = queryset.filter(source_system__iexact=source_system)
+
+        # Search query matching user_id, action, object_type, or trace_id
+        search = request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(user_id__icontains=search) |
+                Q(action__icontains=search) |
+                Q(object_type__icontains=search) |
+                Q(trace_id__icontains=search) |
+                Q(source_system__icontains=search)
+            )
+
+        events = []
+        for event in queryset[:100]: # limit to 100 results for performance
+            events.append({
+                "id": str(event.pk),
+                "timestamp": event.timestamp.isoformat(),
+                "event_id": event.event_id,
+                "user_id": event.user_id,
+                "action": event.action,
+                "object_type": event.object_type,
+                "source_system": event.source_system,
+                "severity": event.severity,
+                "trace_id": event.trace_id,
+            })
+
+        return Response({"events": events})
+
+    @transaction.atomic
+    def post(self, request):
+        """Create a new audit event (e.g. log an access event)."""
+        data = request.data
+        event = AuditEvent.objects.create(
+            event_id=data.get("event_id", "10000"),
+            user_id=data.get("user_id", "Unknown"),
+            action=data.get("action", "UNKNOWN_ACTION"),
+            object_type=data.get("object_type", "Unknown"),
+            source_system=data.get("source_system", "Unknown"),
+            severity=data.get("severity", "Low"),
+            trace_id=data.get("trace_id", ""),
+        )
+        return Response({
+            "id": str(event.pk),
+            "timestamp": event.timestamp.isoformat(),
+            "event_id": event.event_id,
+            "user_id": event.user_id,
+            "action": event.action,
+            "object_type": event.object_type,
+            "source_system": event.source_system,
+            "severity": event.severity,
+            "trace_id": event.trace_id,
+        }, status=status.HTTP_201_CREATED)
+
+
+class AuditMetricsView(APIView):
+    """Retrieve audit statistics and metrics."""
+    permission_classes = []
+
+    def get(self, request):
+        now = timezone.now()
+        yesterday = now - timedelta(hours=24)
+        
+        # 1. Total events in the last 24h
+        total_24h = AuditEvent.objects.filter(timestamp__gte=yesterday).count()
+        
+        # 2. Anomalous alerts count (we count threat alerts)
+        alerts_count = ThreatAlert.objects.count()
+
+        # 3. Compliance Drift (HIPAA/ATNA logs total)
+        # We count logs containing ATNA or HIPAA in trace_id/action/source_system
+        compliance_drift = AuditEvent.objects.filter(
+            Q(trace_id__icontains="ATNA") |
+            Q(trace_id__icontains="HIPAA") |
+            Q(action__icontains="ATNA") |
+            Q(action__icontains="HIPAA")
+        ).count()
+
+        # 4. Top active users: Group by user_id and count
+        from django.db.models import Count
+        top_users_query = AuditEvent.objects.values("user_id").annotate(
+            count=Count("id")
+        ).order_by("-count")[:10]
+
+        top_users = []
+        for row in top_users_query:
+            top_users.append({
+                "user_id": row["user_id"],
+                "count": row["count"]
+            })
+
+        return Response({
+            "total_events_24h": total_24h,
+            "anomalous_alerts_count": alerts_count,
+            "compliance_drift": compliance_drift,
+            "top_users": top_users
+        })
+
+
+class ThreatAlertListView(APIView):
+    """List current threat alerts from the database."""
+    permission_classes = []
+
+    def get(self, request):
+        alerts = ThreatAlert.objects.all().order_by("-created_at")
+        result = []
+        for alert in alerts:
+            result.append({
+                "id": str(alert.pk),
+                "title": alert.title,
+                "score": alert.score,
+                "confidence": alert.confidence,
+                "created_at": alert.created_at.isoformat(),
+            })
+        return Response({"alerts": result})
+

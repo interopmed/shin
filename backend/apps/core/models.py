@@ -356,3 +356,37 @@ class Facility(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class AuditEvent(models.Model):
+    timestamp = models.DateTimeField(default=timezone.now)
+    event_id = models.CharField(max_length=50)
+    user_id = models.CharField(max_length=100)
+    action = models.CharField(max_length=100)
+    object_type = models.CharField(max_length=200)
+    source_system = models.CharField(max_length=100)
+    severity = models.CharField(max_length=50)
+    trace_id = models.CharField(max_length=100)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "audit_event"
+
+    def __str__(self) -> str:
+        return f"{self.action} by {self.user_id}"
+
+
+class ThreatAlert(models.Model):
+    title = models.CharField(max_length=200)
+    score = models.IntegerField(default=0)
+    confidence = models.IntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "threat_alert"
+
+    def __str__(self) -> str:
+        return self.title
+

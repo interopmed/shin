@@ -203,3 +203,28 @@ CREATE TABLE IF NOT EXISTS shin_module_migrations (
   applied_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (module_id, migration_path)
 );
+
+CREATE TABLE IF NOT EXISTS audit_event (
+  id BIGSERIAL PRIMARY KEY,
+  timestamp TIMESTAMPTZ NOT NULL DEFAULT now(),
+  event_id VARCHAR(50) NOT NULL,
+  user_id VARCHAR(100) NOT NULL,
+  action VARCHAR(100) NOT NULL,
+  object_type VARCHAR(200) NOT NULL,
+  source_system VARCHAR(100) NOT NULL,
+  severity VARCHAR(50) NOT NULL,
+  trace_id VARCHAR(100) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS audit_event_timestamp_idx ON audit_event (timestamp DESC);
+CREATE INDEX IF NOT EXISTS audit_event_user_id_idx ON audit_event (user_id);
+
+CREATE TABLE IF NOT EXISTS threat_alert (
+  id BIGSERIAL PRIMARY KEY,
+  title VARCHAR(200) NOT NULL,
+  score INTEGER NOT NULL DEFAULT 0,
+  confidence INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+

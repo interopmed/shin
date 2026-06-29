@@ -15,6 +15,9 @@ from .views import (
   SettingsItemView,
   SettingsView,
   FacilityListView,
+  AuditEventListView,
+  AuditMetricsView,
+  ThreatAlertListView,
 )
 
 router = DefaultRouter()
@@ -35,4 +38,8 @@ urlpatterns = [
   path("facilities/", FacilityListView.as_view()),
   path("facilities/<int:facility_id>", FacilityDetailView.as_view()),
   path("facilities/<int:facility_id>/departments", FacilityDepartmentView.as_view()),
+  # New audit endpoints
+  path("audit/events/", AuditEventListView.as_view()),
+  path("audit/metrics/", AuditMetricsView.as_view()),
+  path("audit/alerts/", ThreatAlertListView.as_view()),
 ]

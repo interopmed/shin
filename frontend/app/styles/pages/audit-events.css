@@ -1,4 +1,4 @@
-﻿/* Audit and events pages */
+/* Audit and events pages */
 .audit-page {
   color: #111827;
 }
@@ -794,4 +794,26 @@
 .events-pagination span {
   font-weight: 900;
 }
+
+.audit-filter-select,
+.audit-filter-input {
+  background: #ffffff;
+  border: 1px solid #ccd6e2;
+  border-radius: 8px;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 800;
+  height: 36px;
+  padding: 0 10px;
+  outline: none;
+}
+
+.audit-filter-input {
+  min-width: 220px;
+}
+
+.audit-filter-select {
+  cursor: pointer;
+}
+
 

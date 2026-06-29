@@ -1,32 +1,130 @@
+"use client";
+
 import Link from "next/link";
-
-const auditRows = [
-  { eventId: "10013", user: "Admin-TW", action: "PATIENT_READ", object: "Bessie Cooper (EID-P10001)", source: "MedTrackr Core", severity: "Primary", trace: "32eV8Bul" },
-  { eventId: "10013", user: "Admin-TW", action: "PATIENT_READ", object: "Bessie Cooper (EID-P10001)", source: "MedTrackr Core", severity: "Primary", trace: "32eV8Oul" },
-  { eventId: "10013", user: "Admin-TW", action: "MPI_LINK_EDIT", object: "Bessie Cooper (EID-P10001)", source: "MedTrackr Core", severity: "Severity", trace: "ATNA Rule 4.1.2" },
-  { eventId: "10013", user: "Admin-TW", action: "PHI_VIEW", object: "Epic Data Feed", source: "Epic Feed Node", severity: "Severity", trace: "32eV8Oul" },
-  { eventId: "10015", user: "Admin-TW", action: "PHI_VIEW", object: "Epic Data Feed", source: "Epic Feed Node", severity: "Severity", trace: "32eV8Oul" },
-  { eventId: "10015", user: "Admin-TW", action: "PHI_VIEW", object: "Epic Data Feed", source: "Epic Feed Node", severity: "Severity", trace: "ATNA Rule" },
-  { eventId: "10013", user: "Admin-TW", action: "CONSENT_FLAG", object: "Bessie Cooper (EID-P10001)", source: "MedTrackr Core", severity: "Severity", trace: "32eV8Uul" },
-  { eventId: "10013", user: "Admin-TW", action: "LOGIN_ATTEMPT", object: "Epic Data Feed", source: "MedTrackr Core", severity: "Severity", trace: "32enBUl" },
-  { eventId: "10013", user: "Admin-TW", action: "LOGIN_ATTEMPT", object: "Epic Data Feed", source: "Epic Feed Node", severity: "Severity", trace: "32enBUl" },
-];
-
-const filters = ["Date Range", "User ID", "Action Type", "Module", "Source System", "Risk Level"];
-
-const alerts = [
-  { title: "PHI_VIEW from unusual location", score: 1, confidence: 50 },
-  { title: "Failed Login Brute Force", score: 0, confidence: 61 },
-];
+import { useEffect, useState } from "react";
+import { AuditEventRecord, AuditMetricsRecord, ThreatAlertRecord } from "../../../lib/audit-db";
 
 const templates = [
   "Analyze Bessie Cooper Access",
-  "Analyze Bessie Cooper Access",
-  "Analyze Bessie Cooper Access",
-  "Analyze Bessie Cooper Access",
+  "Show All LOGIN_ATTEMPT events",
+  "Show Critical / High Risk Events",
+  "Show Epic Feed Node Events",
 ];
 
+// Helper options for dropdown selectors
+const userOptions = ["Admin-TW", "Epic Feed Node", "Dr. Adam Bennett", "Theresa Webb", "Unknown-IP", "System-Scheduler"];
+const actionOptions = ["PATIENT_READ", "MPI_LINK_EDIT", "PHI_VIEW", "CONSENT_FLAG", "LOGIN_ATTEMPT", "PROFILE_VERIFY", "CLINICAL_NOTE_READ", "BACKUP_RUN", "ROLE_ASSIGN"];
+const systemOptions = ["MedTrackr Core", "MPI Engine", "Epic Feed Node", "EHR Notes", "Consent Manager", "Identity Access", "Patient Directory", "Core DB Utility"];
+const severityOptions = ["Low", "Medium", "High"];
+
 export default function AuditLogPage() {
+  const [events, setEvents] = useState<AuditEventRecord[]>([]);
+  const [metrics, setMetrics] = useState<AuditMetricsRecord>({
+    totalEvents24h: 0,
+    anomalousAlertsCount: 0,
+    complianceDrift: 0,
+    topUsers: []
+  });
+  const [alerts, setAlerts] = useState<ThreatAlertRecord[]>([]);
+
+  // Filter States
+  const [search, setSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState("");
+  const [selectedAction, setSelectedAction] = useState("");
+  const [selectedSystem, setSelectedSystem] = useState("");
+  const [selectedSeverity, setSelectedSeverity] = useState("");
+
+  const [loading, setLoading] = useState(true);
+
+  // Fetch all data
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Build query string
+      const params = new URLSearchParams();
+      if (selectedUser) params.set("userId", selectedUser);
+      if (selectedAction) params.set("action", selectedAction);
+      if (selectedSystem) params.set("sourceSystem", selectedSystem);
+      if (selectedSeverity) params.set("severity", selectedSeverity);
+      if (search) params.set("search", search);
+
+      const eventsRes = await fetch(`/api/audit/events?${params.toString()}`);
+      const eventsData = await eventsRes.json();
+      setEvents(eventsData.events || []);
+
+      const metricsRes = await fetch("/api/audit/metrics");
+      const metricsData = await metricsRes.json();
+      setMetrics(metricsData);
+
+      const alertsRes = await fetch("/api/audit/alerts");
+      const alertsData = await alertsRes.json();
+      setAlerts(alertsData.alerts || []);
+    } catch (error) {
+      console.error("Failed to load audit data from DB:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedUser, selectedAction, selectedSystem, selectedSeverity]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchData();
+  };
+
+  const handleClearFilters = () => {
+    setSelectedUser("");
+    setSelectedAction("");
+    setSelectedSystem("");
+    setSelectedSeverity("");
+    setSearch("");
+  };
+
+  // Run template query
+  const applyTemplate = (templateName: string) => {
+    // Reset filters
+    setSelectedUser("");
+    setSelectedAction("");
+    setSelectedSystem("");
+    setSelectedSeverity("");
+    setSearch("");
+
+    if (templateName === "Analyze Bessie Cooper Access") {
+      setSearch("Bessie Cooper");
+    } else if (templateName === "Show All LOGIN_ATTEMPT events") {
+      setSelectedAction("LOGIN_ATTEMPT");
+    } else if (templateName === "Show Critical / High Risk Events") {
+      setSelectedSeverity("High");
+    } else if (templateName === "Show Epic Feed Node Events") {
+      setSelectedUser("Epic Feed Node");
+    }
+  };
+
+  // Trigger search when query input is cleared manually
+  useEffect(() => {
+    if (search === "") {
+      fetchData();
+    }
+  }, [search]);
+
+  // Helper to format timestamp nicely
+  const formatTimestamp = (isoString: string) => {
+    try {
+      const date = new Date(isoString);
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      const dateStr = date.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+      return { timeStr, dateStr };
+    } catch {
+      return { timeStr: "Unknown", dateStr: "" };
+    }
+  };
+
+  // Calculate dynamic bar chart dimensions
+  const maxCount = Math.max(...metrics.topUsers.map(u => u.count), 1);
+
   return (
     <section className="audit-page">
       <nav className="facility-breadcrumb" aria-label="Breadcrumb">
@@ -42,8 +140,8 @@ export default function AuditLogPage() {
             <Link className="audit-secondary-button" href="/">
               &lt; Back
             </Link>
-            <button className="audit-primary-button" type="button">
-              Select Trail
+            <button className="audit-primary-button" type="button" onClick={handleClearFilters}>
+              Reset Filters
             </button>
           </div>
         </header>
@@ -53,43 +151,49 @@ export default function AuditLogPage() {
             <section className="audit-panel audit-monitor">
               <div className="audit-panel-header">
                 <h2>Real-time Threat & Compliance Monitor</h2>
-                <button className="audit-secondary-button compact" type="button">
-                  Summary
+                <button className="audit-secondary-button compact" type="button" onClick={fetchData}>
+                  Refresh
                 </button>
               </div>
               <div className="audit-metrics">
                 <div className="audit-metric">
                   <span>Total Events (24h)</span>
-                  <strong>12,450</strong>
-                  <p>Total Logs age: <b>12,450</b></p>
+                  <strong>{metrics.totalEvents24h}</strong>
+                  <p>Active logs: <b>{metrics.totalEvents24h}</b></p>
                 </div>
                 <div className="audit-metric">
                   <span>Anomalous Activity Alerts</span>
-                  <strong>23</strong>
-                  <p className="audit-chip danger">Anomalous Activity 23</p>
+                  <strong>{metrics.anomalousAlertsCount}</strong>
+                  <p className="audit-chip danger">Anomalous Activity {metrics.anomalousAlertsCount}</p>
                 </div>
                 <div className="audit-metric">
                   <span>Compliance Drift (HIPAA/ATNA)</span>
-                  <strong>21</strong>
-                  <p className="audit-chip warning">Compliance Drift 19</p>
+                  <strong>{metrics.complianceDrift}</strong>
+                  <p className="audit-chip warning">Compliance Drift {metrics.complianceDrift}</p>
                 </div>
                 <div className="audit-metric audit-users-metric">
                   <span>Top Active Users</span>
                   <div className="audit-bars-chart" aria-label="Top active users chart">
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                    <i />
+                    {metrics.topUsers.map((user, idx) => {
+                      const heightPercent = Math.min(54, Math.round((user.count / maxCount) * 54));
+                      return (
+                        <i
+                          key={user.userId}
+                          style={{ height: `${heightPercent}px`, opacity: Math.max(0.3, 1 - idx * 0.15) }}
+                          title={`${user.userId}: ${user.count} events`}
+                        />
+                      );
+                    })}
+                    {metrics.topUsers.length === 0 && (
+                      <span style={{ fontSize: "12px", color: "#667085" }}>No active users</span>
+                    )}
                   </div>
                   <div className="audit-user-labels">
-                    <span>User 1</span>
-                    <span>User 2</span>
-                    <span>User 3</span>
+                    {metrics.topUsers.slice(0, 3).map((user) => (
+                      <span key={user.userId} title={user.userId}>
+                        {user.userId.length > 8 ? `${user.userId.substring(0, 6)}...` : user.userId}
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -98,17 +202,72 @@ export default function AuditLogPage() {
             <section className="audit-panel audit-trail-panel">
               <div className="audit-panel-header">
                 <h2>Live Security Event Trail</h2>
-                <button className="audit-secondary-button compact" type="button">
-                  Advanced Filter
-                </button>
+                <form onSubmit={handleSearchSubmit} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <input
+                    type="text"
+                    placeholder="Search query..."
+                    className="audit-filter-input"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  <button className="audit-secondary-button compact" type="submit">
+                    Search
+                  </button>
+                </form>
               </div>
 
               <div className="audit-filter-row">
-                {filters.map((filter) => (
-                  <button key={filter} type="button">
-                    {filter} v
-                  </button>
-                ))}
+                <select
+                  value={selectedUser}
+                  onChange={(e) => setSelectedUser(e.target.value)}
+                  className="audit-filter-select"
+                >
+                  <option value="">All Users</option>
+                  {userOptions.map((user) => (
+                    <option key={user} value={user}>
+                      {user}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedAction}
+                  onChange={(e) => setSelectedAction(e.target.value)}
+                  className="audit-filter-select"
+                >
+                  <option value="">All Actions</option>
+                  {actionOptions.map((action) => (
+                    <option key={action} value={action}>
+                      {action}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedSystem}
+                  onChange={(e) => setSelectedSystem(e.target.value)}
+                  className="audit-filter-select"
+                >
+                  <option value="">All Systems</option>
+                  {systemOptions.map((system) => (
+                    <option key={system} value={system}>
+                      {system}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedSeverity}
+                  onChange={(e) => setSelectedSeverity(e.target.value)}
+                  className="audit-filter-select"
+                >
+                  <option value="">All Risks</option>
+                  {severityOptions.map((severity) => (
+                    <option key={severity} value={severity}>
+                      {severity}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="audit-table-wrap">
@@ -126,21 +285,31 @@ export default function AuditLogPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {auditRows.map((row, index) => (
-                      <tr key={`${row.eventId}-${row.action}-${index}`}>
-                        <td>
-                          <strong>10:43:20 PM +0530</strong>
-                          <span>22 Jun 2026</span>
+                    {events.map((row) => {
+                      const { timeStr, dateStr } = formatTimestamp(row.timestamp);
+                      return (
+                        <tr key={row.id}>
+                          <td>
+                            <strong>{timeStr}</strong>
+                            <span>{dateStr}</span>
+                          </td>
+                          <td>{row.eventId}</td>
+                          <td>{row.userId}</td>
+                          <td>{row.action}</td>
+                          <td>{row.objectType}</td>
+                          <td>{row.sourceSystem}</td>
+                          <td>{row.severity}</td>
+                          <td>{row.traceId}</td>
+                        </tr>
+                      );
+                    })}
+                    {events.length === 0 && (
+                      <tr>
+                        <td colSpan={8} style={{ textAlign: "center", padding: "24px", color: "#667085" }}>
+                          {loading ? "Loading audit events..." : "No events found matching the criteria."}
                         </td>
-                        <td>{row.eventId}</td>
-                        <td>{row.user}</td>
-                        <td>{row.action}</td>
-                        <td>{row.object}</td>
-                        <td>{row.source}</td>
-                        <td>{row.severity}</td>
-                        <td>{row.trace}</td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -157,7 +326,7 @@ export default function AuditLogPage() {
                   <button aria-label="More live alert actions" type="button">:</button>
                 </div>
                 {alerts.map((alert) => (
-                  <div className="audit-alert-card" key={alert.title}>
+                  <div className="audit-alert-card" key={alert.id}>
                     <strong>{alert.title}</strong>
                     <p>Confidence Score: {alert.score}</p>
                     <div className="audit-map" aria-hidden="true">
@@ -167,27 +336,21 @@ export default function AuditLogPage() {
                     <span className="audit-confidence">Confidence: {alert.confidence}%</span>
                   </div>
                 ))}
+                {alerts.length === 0 && (
+                  <div style={{ padding: "16px", textAlign: "center", background: "#ffffff", color: "#667085" }}>
+                    No threat alerts in system.
+                  </div>
+                )}
               </div>
             </section>
 
             <section className="audit-panel audit-search-panel">
               <h2>Audit Trail Search & Analysis</h2>
-              <p>Advanced Boolean logic with Advanced Boolean logic</p>
-              <div className="audit-query-row">
-                <button type="button">Boolean v</button>
-                <button type="button">if v</button>
-                <button type="button">It</button>
-                <button type="button">...</button>
-              </div>
-              <div className="audit-query-row">
-                <button type="button">All near v</button>
-                <button className="primary" type="button">&lt;</button>
-                <button className="primary" type="button">&gt;</button>
-              </div>
+              <p>Quick investigation filters templates to find security, compliance, and access indicators</p>
               <h3>Investigation templates</h3>
               <div className="audit-template-list">
-                {templates.map((template, index) => (
-                  <button key={`${template}-${index}`} type="button">
+                {templates.map((template) => (
+                  <button key={template} type="button" onClick={() => applyTemplate(template)}>
                     {template}
                   </button>
                 ))}
@@ -198,7 +361,7 @@ export default function AuditLogPage() {
 
         <section className="audit-question">
           <h2>Key Question Resolved: "Did someone look at or modify medical records who shouldn't have?"</h2>
-          <p>Automatically flagged, unresolved high-risk access events "Did someone look at or modify medical codes (EID-P10001)!"</p>
+          <p>Automatically flagged, unresolved high-risk access events are highlighted in compliance drift logs.</p>
         </section>
       </div>
     </section>

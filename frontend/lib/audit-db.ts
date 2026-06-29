@@ -151,3 +151,73 @@ export async function getThreatAlerts(): Promise<ThreatAlertRecord[]> {
     return [];
   }
 }
+
+export async function createAuditEvent(event: Omit<AuditEventRecord, "id" | "timestamp">): Promise<AuditEventRecord> {
+  const payload = await backendRequest<any>("/api/audit/events/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      event_id: event.eventId,
+      user_id: event.userId,
+      action: event.action,
+      object_type: event.objectType,
+      source_system: event.sourceSystem,
+      severity: event.severity,
+      trace_id: event.traceId,
+    }),
+  });
+
+  return {
+    id: String(payload.id),
+    timestamp: payload.timestamp,
+    eventId: payload.event_id,
+    userId: payload.user_id,
+    action: payload.action,
+    objectType: payload.object_type,
+    sourceSystem: payload.source_system,
+    severity: payload.severity,
+    traceId: payload.trace_id,
+  };
+}
+
+export async function updateAuditEvent(
+  id: string,
+  event: Partial<Omit<AuditEventRecord, "id" | "timestamp">>
+): Promise<AuditEventRecord> {
+  const payload = await backendRequest<any>(`/api/audit/events/${id}/`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      event_id: event.eventId,
+      user_id: event.userId,
+      action: event.action,
+      object_type: event.objectType,
+      source_system: event.sourceSystem,
+      severity: event.severity,
+      trace_id: event.traceId,
+    }),
+  });
+
+  return {
+    id: String(payload.id),
+    timestamp: payload.timestamp,
+    eventId: payload.event_id,
+    userId: payload.user_id,
+    action: payload.action,
+    objectType: payload.object_type,
+    sourceSystem: payload.source_system,
+    severity: payload.severity,
+    traceId: payload.trace_id,
+  };
+}
+
+export async function deleteAuditEvent(id: string): Promise<void> {
+  await backendRequest<void>(`/api/audit/events/${id}/`, {
+    method: "DELETE",
+  });
+}
+

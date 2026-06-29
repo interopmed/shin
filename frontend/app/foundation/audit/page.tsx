@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AuditEventRecord, AuditMetricsRecord, ThreatAlertRecord } from "../../../lib/audit-db";
+import { AuditEventRecord, AuditMetricsRecord, ThreatAlertRecord, createAuditEvent, updateAuditEvent, deleteAuditEvent } from "../../../lib/audit-db";
 
 const templates = [
   "Analyze Bessie Cooper Access",
@@ -26,6 +26,50 @@ export default function AuditLogPage() {
     topUsers: []
   });
   const [alerts, setAlerts] = useState<ThreatAlertRecord[]>([]);
+
+  // CRUD state & handlers
+  const [editingEvent, setEditingEvent] = useState<Partial<AuditEventRecord> | null>(null);
+
+  const handleSaveEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEvent) return;
+
+    try {
+      const eventData = {
+        eventId: editingEvent.eventId || "10000",
+        userId: editingEvent.userId || "Unknown",
+        action: editingEvent.action || "UNKNOWN_ACTION",
+        objectType: editingEvent.objectType || "Unknown",
+        sourceSystem: editingEvent.sourceSystem || "Unknown",
+        severity: editingEvent.severity || "Low",
+        traceId: editingEvent.traceId || "",
+      };
+
+      if (editingEvent.id) {
+        await updateAuditEvent(editingEvent.id, eventData);
+      } else {
+        await createAuditEvent(eventData);
+      }
+
+      setEditingEvent(null);
+      fetchData();
+    } catch (error) {
+      console.error("Failed to save audit event:", error);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!editingEvent || !editingEvent.id) return;
+    if (!confirm("Are you sure you want to delete this audit event?")) return;
+
+    try {
+      await deleteAuditEvent(editingEvent.id);
+      setEditingEvent(null);
+      fetchData();
+    } catch (error) {
+      console.error("Failed to delete audit event:", error);
+    }
+  };
 
   // Filter States
   const [search, setSearch] = useState("");
@@ -140,6 +184,23 @@ export default function AuditLogPage() {
             <Link className="audit-secondary-button" href="/">
               &lt; Back
             </Link>
+            <button
+              className="audit-primary-button"
+              type="button"
+              onClick={() =>
+                setEditingEvent({
+                  eventId: "",
+                  userId: "",
+                  action: "",
+                  objectType: "",
+                  sourceSystem: "",
+                  severity: "Low",
+                  traceId: "",
+                })
+              }
+            >
+              + Create Event
+            </button>
           </div>
         </header>
 
@@ -283,6 +344,7 @@ export default function AuditLogPage() {
                       <th>Source System</th>
                       <th>Severity</th>
                       <th>Trace ID</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -301,12 +363,22 @@ export default function AuditLogPage() {
                           <td>{row.sourceSystem}</td>
                           <td>{row.severity}</td>
                           <td>{row.traceId}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="audit-secondary-button compact"
+                              style={{ padding: "0 8px", minHeight: "26px", fontSize: "12px" }}
+                              onClick={() => setEditingEvent(row)}
+                            >
+                              Edit
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
                     {events.length === 0 && (
                       <tr>
-                        <td colSpan={8} style={{ textAlign: "center", padding: "24px", color: "#667085" }}>
+                        <td colSpan={9} style={{ textAlign: "center", padding: "24px", color: "#667085" }}>
                           {loading ? "Loading audit events..." : "No events found matching the criteria."}
                         </td>
                       </tr>
@@ -365,6 +437,132 @@ export default function AuditLogPage() {
           <p>Automatically flagged, unresolved high-risk access events are highlighted in compliance drift logs.</p>
         </section>
       </div>
+
+      {editingEvent && (
+        <div className="audit-modal-overlay" onClick={() => setEditingEvent(null)}>
+          <div className="audit-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>{editingEvent.id ? "Edit Audit Event" : "Create Audit Event"}</h2>
+            <form onSubmit={handleSaveEvent}>
+              <div className="audit-form-group">
+                <label htmlFor="modal-event-id">Event ID</label>
+                <input
+                  id="modal-event-id"
+                  type="text"
+                  required
+                  className="audit-form-input"
+                  value={editingEvent.eventId || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, eventId: e.target.value })}
+                />
+              </div>
+
+              <div className="audit-form-group">
+                <label htmlFor="modal-user-id">User ID/Node</label>
+                <input
+                  id="modal-user-id"
+                  type="text"
+                  required
+                  className="audit-form-input"
+                  value={editingEvent.userId || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, userId: e.target.value })}
+                />
+              </div>
+
+              <div className="audit-form-group">
+                <label htmlFor="modal-action">Action</label>
+                <select
+                  id="modal-action"
+                  className="audit-form-select"
+                  value={editingEvent.action || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, action: e.target.value })}
+                >
+                  <option value="">Select Action...</option>
+                  {actionOptions.map((action) => (
+                    <option key={action} value={action}>
+                      {action}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="audit-form-group">
+                <label htmlFor="modal-object-type">Object Type</label>
+                <input
+                  id="modal-object-type"
+                  type="text"
+                  required
+                  className="audit-form-input"
+                  value={editingEvent.objectType || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, objectType: e.target.value })}
+                />
+              </div>
+
+              <div className="audit-form-group">
+                <label htmlFor="modal-source-system">Source System</label>
+                <select
+                  id="modal-source-system"
+                  className="audit-form-select"
+                  value={editingEvent.sourceSystem || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, sourceSystem: e.target.value })}
+                >
+                  <option value="">Select System...</option>
+                  {systemOptions.map((sys) => (
+                    <option key={sys} value={sys}>
+                      {sys}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="audit-form-group">
+                <label htmlFor="modal-severity">Severity</label>
+                <select
+                  id="modal-severity"
+                  className="audit-form-select"
+                  value={editingEvent.severity || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, severity: e.target.value })}
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+
+              <div className="audit-form-group">
+                <label htmlFor="modal-trace-id">Trace ID</label>
+                <input
+                  id="modal-trace-id"
+                  type="text"
+                  className="audit-form-input"
+                  value={editingEvent.traceId || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, traceId: e.target.value })}
+                />
+              </div>
+
+              <div className="audit-modal-actions">
+                {editingEvent.id && (
+                  <button
+                    type="button"
+                    className="audit-danger-button"
+                    onClick={handleDeleteEvent}
+                  >
+                    Delete Event
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="audit-secondary-button"
+                  onClick={() => setEditingEvent(null)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="audit-primary-button">
+                  Save Event
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

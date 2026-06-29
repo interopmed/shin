@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPatientById } from "../../../lib/patients-db";
+import { createAuditEvent } from "../../../lib/audit-db";
+import { getActiveUserContext } from "../../../lib/node-state";
+
+export const dynamic = "force-dynamic";
 
 const dataSources = [
   { name: "SHIN PostgreSQL", records: 1, mark: "DB", tone: "blue" },
@@ -23,6 +27,23 @@ export default async function PatientProfilePage({ params }: { params: Promise<{
 
   if (!patient) {
     notFound();
+  }
+
+  // Log patient read audit event
+  const activeUser = getActiveUserContext();
+  try {
+    const traceId = Math.random().toString(36).substring(2, 10).toUpperCase();
+    await createAuditEvent({
+      eventId: "10013",
+      userId: activeUser.displayName,
+      action: "PATIENT_READ",
+      objectType: `${patient.name} (${patient.patientNumber})`,
+      sourceSystem: "MedTrackr Core",
+      severity: "Low",
+      traceId,
+    });
+  } catch (error) {
+    console.error("Failed to create audit event when viewing patient profile:", error);
   }
 
   const activity = [

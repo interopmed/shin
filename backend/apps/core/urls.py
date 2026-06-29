@@ -18,6 +18,7 @@ from .views import (
   AuditEventListView,
   AuditMetricsView,
   ThreatAlertListView,
+  AuditEventDetailView,
 )
 
 router = DefaultRouter()
@@ -42,4 +43,5 @@ urlpatterns = [
   path("audit/events/", AuditEventListView.as_view()),
   path("audit/metrics/", AuditMetricsView.as_view()),
   path("audit/alerts/", ThreatAlertListView.as_view()),
+  path("audit/events/<str:event_id>/", AuditEventDetailView.as_view()),
 ]

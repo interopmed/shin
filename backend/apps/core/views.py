@@ -1208,3 +1208,51 @@ class ThreatAlertListView(APIView):
             })
         return Response({"alerts": result})
 
+
+class AuditEventDetailView(APIView):
+    """Retrieve, update, or delete a single audit event."""
+    permission_classes = []
+
+    @transaction.atomic
+    def patch(self, request, event_id: str):
+        event = AuditEvent.objects.filter(pk=event_id).first()
+        if not event:
+            return Response({"detail": "Audit event not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data
+        if "event_id" in data:
+            event.event_id = str(data["event_id"])
+        if "user_id" in data:
+            event.user_id = str(data["user_id"])
+        if "action" in data:
+            event.action = str(data["action"])
+        if "object_type" in data:
+            event.object_type = str(data["object_type"])
+        if "source_system" in data:
+            event.source_system = str(data["source_system"])
+        if "severity" in data:
+            event.severity = str(data["severity"])
+        if "trace_id" in data:
+            event.trace_id = str(data["trace_id"])
+
+        event.save()
+        return Response({
+            "id": str(event.pk),
+            "timestamp": event.timestamp.isoformat(),
+            "event_id": event.event_id,
+            "user_id": event.user_id,
+            "action": event.action,
+            "object_type": event.object_type,
+            "source_system": event.source_system,
+            "severity": event.severity,
+            "trace_id": event.trace_id,
+        })
+
+    @transaction.atomic
+    def delete(self, request, event_id: str):
+        event = AuditEvent.objects.filter(pk=event_id).first()
+        if not event:
+            return Response({"detail": "Audit event not found."}, status=status.HTTP_404_NOT_FOUND)
+        event.delete()
+        return Response({"detail": "Audit event deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+

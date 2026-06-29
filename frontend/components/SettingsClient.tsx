@@ -38,6 +38,22 @@ function SettingRow({
   // Hide edit interface for language.default as requested ("remove language select")
   const isEditable = setting.isEditable && !isLanguage;
 
+  if (setting.key === "audit.log.summary") {
+    return (
+      <Link href="/foundation/audit" className="system-list-item" style={{ textDecoration: "none" }}>
+        <Icon name="db" />
+        <span>
+          <b>{setting.label}</b>
+          <small>{setting.detail}</small>
+        </span>
+        <div>
+          <strong className="success">Available</strong>
+        </div>
+        <i style={{ color: "#2f66d9" }}>&gt;</i>
+      </Link>
+    );
+  }
+
   return (
     <div className="system-list-item">
       <Icon name={setting.section.includes("Privacy") ? "lock" : setting.section.includes("IAM") ? "role" : setting.section.includes("Audit") ? "db" : "globe"} />
@@ -201,6 +217,7 @@ export default function SettingsClient({ initialSettings, moduleContributions }:
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showHelp, setShowHelp] = useState(false);
 
   const settingsBySection = useMemo(() => settings.sections, [settings]);
 
@@ -382,8 +399,39 @@ export default function SettingsClient({ initialSettings, moduleContributions }:
           </div>
         </section>
 
-        <button className="system-help-button" type="button">? Help</button>
+        <button className="system-help-button" type="button" onClick={() => setShowHelp(true)}>
+          ? Help
+        </button>
       </div>
+
+      {showHelp && (
+        <div className="system-help-modal-overlay" onClick={() => setShowHelp(false)}>
+          <div className="system-help-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>SHIN Node Settings Help</h2>
+            <p>
+              Welcome to the System Administration guide. Configure platform infrastructure, manage local modules, or adjust compliance preferences.
+            </p>
+            
+            <h3>Making Adjustments</h3>
+            <ul>
+              <li>Use dropdown selectors to configure timezones, retention policies, backup schedules, biometric authentication, and external data feeds.</li>
+              <li>Use toggles to enable or disable global features like MFA Enforcement and Callbacks.</li>
+            </ul>
+
+            <h3>Saving Changes</h3>
+            <ul>
+              <li>All edits are stored locally in memory first. The number of pending updates is tracked at the top right of the administration card.</li>
+              <li>Click <strong>Save Changes</strong> to commit all changes at once to the database, or click <strong>Discard</strong> to revert to the current database settings.</li>
+            </ul>
+
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button className="system-primary-button" type="button" onClick={() => setShowHelp(false)}>
+                Close Help
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

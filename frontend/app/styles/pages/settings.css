@@ -791,4 +791,61 @@
   cursor: pointer;
 }
 
+.system-help-modal-overlay {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  left: 0;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+}
+
+.system-help-modal {
+  background: #ffffff;
+  border: 1px solid #d5dde8;
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24);
+  max-width: 600px;
+  padding: 30px;
+  position: relative;
+  width: 90%;
+}
+
+.system-help-modal h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.system-help-modal p {
+  color: #475467;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.system-help-modal h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+
+.system-help-modal ul {
+  margin: 0 0 24px;
+  padding-left: 20px;
+}
+
+.system-help-modal li {
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
+
 

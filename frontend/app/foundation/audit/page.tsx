@@ -140,9 +140,6 @@ export default function AuditLogPage() {
             <Link className="audit-secondary-button" href="/">
               &lt; Back
             </Link>
-            <button className="audit-primary-button" type="button" onClick={handleClearFilters}>
-              Reset Filters
-            </button>
           </div>
         </header>
 
@@ -268,6 +265,10 @@ export default function AuditLogPage() {
                     </option>
                   ))}
                 </select>
+
+                <button type="button" onClick={handleClearFilters}>
+                  Reset Filters
+                </button>
               </div>
 
               <div className="audit-table-wrap">

@@ -33,6 +33,7 @@ function SettingRow({
   const isBackup = setting.key === "backup.schedule";
   const isBiometric = setting.key === "iam.biometric.policy";
   const isPhiAccess = setting.key === "privacy.access.preferences";
+  const isFeed = setting.key.startsWith("feeds.");
 
   // Hide edit interface for language.default as requested ("remove language select")
   const isEditable = setting.isEditable && !isLanguage;
@@ -100,6 +101,16 @@ function SettingRow({
               <option value="Set individual privacy rules">Set individual privacy rules</option>
               <option value="Enforce global defaults">Enforce global defaults</option>
               <option value="Restrict all PHI access">Restrict all PHI access</option>
+            </select>
+          ) : isFeed ? (
+            <select
+              value={currentValue}
+              onChange={(e) => onChange(e.target.value)}
+              className="system-setting-select"
+            >
+              <option value="Connected">Connected</option>
+              <option value="Disconnected">Disconnected</option>
+              <option value="Maintenance">Maintenance</option>
             </select>
           ) : isBoolean ? (
             <select

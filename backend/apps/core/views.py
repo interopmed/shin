@@ -29,8 +29,18 @@ from .models import (
   SystemSetting,
   AuditEvent,
   ThreatAlert,
+  CareTeam,
+  CareTeamMember,
+  CareTeamNote,
 )
-from .serializers import DoctorSerializer, PatientConsentPreferenceSerializer, PatientSerializer
+from .serializers import (
+  DoctorSerializer,
+  PatientConsentPreferenceSerializer,
+  PatientSerializer,
+  CareTeamNoteSerializer,
+  CareTeamMemberSerializer,
+  CareTeamSerializer,
+)
 
 
 DEFAULT_CONSENT_PREFERENCES = (
@@ -1255,4 +1265,132 @@ class AuditEventDetailView(APIView):
             return Response({"detail": "Audit event not found."}, status=status.HTTP_404_NOT_FOUND)
         event.delete()
         return Response({"detail": "Audit event deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+
+
+class CareTeamViewSet(viewsets.ModelViewSet):
+    queryset = CareTeam.objects.all().order_by("name", "id")
+    serializer_class = CareTeamSerializer
+    permission_classes = []
+
+    def _normalize_id(self, val):
+        if val is None:
+            return None
+        s = str(val).strip()
+        if not s or s == "null" or s == "undefined" or s == "":
+            return None
+        try:
+            return int(s)
+        except ValueError:
+            return None
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        data = self.request.data
+        lead_doctor_id = self._normalize_id(data.get("leadDoctorId"))
+        lead_employee_id = self._normalize_id(data.get("leadEmployeeId"))
+        
+        care_team = serializer.save(
+            lead_doctor_id=lead_doctor_id,
+            lead_employee_id=lead_employee_id,
+        )
+
+        members_data = data.get("members", [])
+        for m in members_data:
+            doc_id = self._normalize_id(m.get("doctorId"))
+            emp_id = self._normalize_id(m.get("employeeId"))
+            if doc_id or emp_id:
+                CareTeamMember.objects.create(
+                    care_team=care_team,
+                    doctor_id=doc_id,
+                    employee_id=emp_id,
+                    role=m.get("role", "Member")
+                )
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        data = self.request.data
+        lead_doctor_id = self._normalize_id(data.get("leadDoctorId"))
+        lead_employee_id = self._normalize_id(data.get("leadEmployeeId"))
+
+        care_team = serializer.save(
+            lead_doctor_id=lead_doctor_id,
+            lead_employee_id=lead_employee_id,
+        )
+
+        if "members" in data:
+            CareTeamMember.objects.filter(care_team=care_team).delete()
+            members_data = data.get("members", [])
+            for m in members_data:
+                doc_id = self._normalize_id(m.get("doctorId"))
+                emp_id = self._normalize_id(m.get("employeeId"))
+                if doc_id or emp_id:
+                    CareTeamMember.objects.create(
+                        care_team=care_team,
+                        doctor_id=doc_id,
+                        employee_id=emp_id,
+                        role=m.get("role", "Member")
+                    )
+
+
+class CareTeamNoteViewSet(viewsets.ModelViewSet):
+    queryset = CareTeamNote.objects.all().order_by("-created_at", "-id")
+    serializer_class = CareTeamNoteSerializer
+    permission_classes = []
+
+
+class ProviderDirectoryView(APIView):
+    permission_classes = []
+
+    def get(self, request):
+        providers = []
+
+        doctors = Doctor.objects.all()
+        from django.db.models import Count
+        patient_counts = {
+            r["assigned_doctor_id"]: r["count"]
+            for r in Patient.objects.values("assigned_doctor_id").annotate(count=Count("id"))
+            if r["assigned_doctor_id"]
+        }
+
+        def get_status_tone(idx, name):
+            statuses = ["Available", "On shift", "In consult", "On call"]
+            tones = ["blue", "warm", "green", "gray", "dark"]
+            status = statuses[idx % len(statuses)]
+            tone = tones[idx % len(tones)]
+            return status, tone
+
+        for idx, doc in enumerate(doctors):
+            patients_count = patient_counts.get(doc.pk, 0)
+            status_val, tone_val = get_status_tone(idx, doc.name)
+            providers.append({
+                "id": f"doc-{doc.pk}",
+                "doctorId": str(doc.pk),
+                "employeeId": None,
+                "name": doc.name,
+                "role": doc.qualifications if doc.qualifications else "Physician",
+                "specialty": doc.speciality if doc.speciality else "Internal Medicine",
+                "department": doc.department if doc.department else "Primary Care",
+                "patients": patients_count,
+                "status": status_val,
+                "tone": tone_val
+            })
+
+        employees = Employee.objects.all()
+        for idx, emp in enumerate(employees):
+            status_val, tone_val = get_status_tone(idx + len(doctors), emp.full_name)
+            mock_patients = 12 if "Coordinator" in emp.job_title else (8 if "Lead" in emp.job_title else 0)
+            providers.append({
+                "id": f"emp-{emp.pk}",
+                "doctorId": None,
+                "employeeId": str(emp.pk),
+                "name": emp.full_name,
+                "role": emp.job_title if emp.job_title else "Clinical Staff",
+                "specialty": "Clinical Support" if emp.staff_type == "clinical" else "Care Coordination",
+                "department": emp.department if emp.department else "Care Coordination",
+                "patients": mock_patients,
+                "status": status_val,
+                "tone": tone_val
+            })
+
+        return Response(providers)
 

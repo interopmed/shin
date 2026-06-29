@@ -390,3 +390,89 @@ class ThreatAlert(models.Model):
     def __str__(self) -> str:
         return self.title
 
+
+class CareTeam(models.Model):
+    name = models.CharField(max_length=255)
+    lead_doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="lead_doctor_id",
+        related_name="led_care_teams",
+    )
+    lead_employee = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="lead_employee_id",
+        related_name="led_care_teams",
+    )
+    risk = models.CharField(max_length=50, default="Routine")
+    status = models.CharField(max_length=50, default="Active")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "care_team"
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class CareTeamMember(models.Model):
+    care_team = models.ForeignKey(
+        CareTeam,
+        on_delete=models.CASCADE,
+        db_column="care_team_id",
+        related_name="members",
+    )
+    doctor = models.ForeignKey(
+        Doctor,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="doctor_id",
+        related_name="care_team_memberships",
+    )
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="employee_id",
+        related_name="care_team_memberships",
+    )
+    role = models.CharField(max_length=100, default="Member")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "care_team_member"
+        unique_together = (("care_team", "doctor", "employee"),)
+
+
+class CareTeamNote(models.Model):
+    care_team = models.ForeignKey(
+        CareTeam,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        db_column="care_team_id",
+        related_name="notes",
+    )
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = False
+        db_table = "care_team_note"
+
+    def __str__(self) -> str:
+        return self.title
+

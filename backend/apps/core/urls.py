@@ -19,11 +19,16 @@ from .views import (
   AuditMetricsView,
   ThreatAlertListView,
   AuditEventDetailView,
+  CareTeamViewSet,
+  CareTeamNoteViewSet,
+  ProviderDirectoryView,
 )
 
 router = DefaultRouter()
 router.register(r"patients", PatientViewSet, basename="patient")
 router.register(r"doctors", DoctorViewSet, basename="doctor")
+router.register(r"care-teams", CareTeamViewSet, basename="care-team")
+router.register(r"care-team-notes", CareTeamNoteViewSet, basename="care-team-note")
 
 urlpatterns = [
   path("health/", HealthView.as_view()),
@@ -34,6 +39,7 @@ urlpatterns = [
   path("settings/items/<str:setting_id>/", SettingsItemView.as_view()),
   path("mpi/", MpiView.as_view()),
   path("patients/<str:patient_id>/consent/", PatientConsentView.as_view()),
+  path("care-team-providers/", ProviderDirectoryView.as_view()),
   path("", include(router.urls)),
   # New facility endpoint for the Facilities page
   path("facilities/", FacilityListView.as_view()),

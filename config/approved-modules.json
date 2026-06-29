@@ -83,6 +83,7 @@
       "permissions": ["ehr.read", "ehr.write", "ehr.admin"],
       "routes": [
         { "path": "/modules/ehr", "label": "EHR Overview", "detail": "Clinical chart", "icon": "module", "sidebarSection": "Patients" },
+        { "path": "/modules/ehr/care-teams", "label": "Care Teams", "detail": "Provider directory", "icon": "users", "sidebarSection": "Patients", "requiredPermissions": ["provider.read"] },
         { "path": "/modules/ehr/encounters", "label": "Encounters", "detail": "Visits and episodes", "icon": "activity", "sidebarSection": "Patients" },
         { "path": "/modules/ehr/notes", "label": "Clinical Notes", "detail": "Documentation", "icon": "file", "sidebarSection": "Patients" },
         { "path": "/modules/ehr/problems", "label": "Problems", "detail": "Problem list", "icon": "activity", "sidebarSection": "Patients" },

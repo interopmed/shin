@@ -3,7 +3,7 @@ from datetime import datetime
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Doctor, Patient, PatientConsentPreference
+from .models import Doctor, Patient, PatientConsentPreference, CareTeam, CareTeamMember, CareTeamNote, Employee
 
 
 def _format_datetime(value) -> str:
@@ -170,3 +170,49 @@ class PatientConsentPreferenceSerializer(serializers.ModelSerializer):
   class Meta:
     model = PatientConsentPreference
     fields = ["category", "groupName", "grantAccess", "limitAccess", "details"]
+
+
+class CareTeamNoteSerializer(serializers.ModelSerializer):
+  careTeamId = serializers.PrimaryKeyRelatedField(source="care_team", queryset=CareTeam.objects.all(), required=False, allow_null=True)
+
+  class Meta:
+    model = CareTeamNote
+    fields = ["id", "careTeamId", "title", "content", "created_at", "updated_at"]
+
+
+class CareTeamMemberSerializer(serializers.ModelSerializer):
+  id = serializers.CharField(source="pk", read_only=True)
+  doctorId = serializers.CharField(source="doctor_id", allow_null=True, required=False)
+  employeeId = serializers.CharField(source="employee_id", allow_null=True, required=False)
+  name = serializers.SerializerMethodField()
+  role = serializers.CharField(default="Member")
+
+  class Meta:
+    model = CareTeamMember
+    fields = ["id", "doctorId", "employeeId", "name", "role"]
+
+  def get_name(self, obj):
+    if obj.doctor:
+      return obj.doctor.name
+    if obj.employee:
+      return obj.employee.full_name
+    return "Unknown"
+
+
+class CareTeamSerializer(serializers.ModelSerializer):
+  id = serializers.CharField(source="pk", read_only=True)
+  leadDoctorId = serializers.CharField(source="lead_doctor_id", allow_null=True, required=False)
+  leadEmployeeId = serializers.CharField(source="lead_employee_id", allow_null=True, required=False)
+  leadName = serializers.SerializerMethodField()
+  members = CareTeamMemberSerializer(many=True, read_only=True)
+
+  class Meta:
+    model = CareTeam
+    fields = ["id", "name", "leadDoctorId", "leadEmployeeId", "leadName", "risk", "status", "members"]
+
+  def get_leadName(self, obj):
+    if obj.lead_doctor:
+      return obj.lead_doctor.name
+    if obj.lead_employee:
+      return obj.lead_employee.full_name
+    return "Unassigned"

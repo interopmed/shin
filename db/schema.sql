@@ -228,3 +228,52 @@ CREATE TABLE IF NOT EXISTS threat_alert (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS care_team (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  lead_doctor_id BIGINT REFERENCES doctor(id) ON DELETE SET NULL,
+  lead_employee_id BIGINT REFERENCES employee(id) ON DELETE SET NULL,
+  risk VARCHAR(50) NOT NULL DEFAULT 'Routine',
+  status VARCHAR(50) NOT NULL DEFAULT 'Active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_care_team_lead CHECK (
+    (lead_doctor_id IS NOT NULL AND lead_employee_id IS NULL) OR
+    (lead_doctor_id IS NULL AND lead_employee_id IS NOT NULL) OR
+    (lead_doctor_id IS NULL AND lead_employee_id IS NULL)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS care_team_lead_doctor_idx ON care_team (lead_doctor_id);
+CREATE INDEX IF NOT EXISTS care_team_lead_employee_idx ON care_team (lead_employee_id);
+
+CREATE TABLE IF NOT EXISTS care_team_member (
+  id BIGSERIAL PRIMARY KEY,
+  care_team_id BIGINT NOT NULL REFERENCES care_team(id) ON DELETE CASCADE,
+  doctor_id BIGINT REFERENCES doctor(id) ON DELETE SET NULL,
+  employee_id BIGINT REFERENCES employee(id) ON DELETE SET NULL,
+  role VARCHAR(100) NOT NULL DEFAULT 'Member',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_care_team_member CHECK (
+    (doctor_id IS NOT NULL AND employee_id IS NULL) OR
+    (doctor_id IS NULL AND employee_id IS NOT NULL)
+  ),
+  UNIQUE (care_team_id, doctor_id, employee_id)
+);
+
+CREATE INDEX IF NOT EXISTS care_team_member_team_idx ON care_team_member (care_team_id);
+CREATE INDEX IF NOT EXISTS care_team_member_doctor_idx ON care_team_member (doctor_id);
+CREATE INDEX IF NOT EXISTS care_team_member_employee_idx ON care_team_member (employee_id);
+
+CREATE TABLE IF NOT EXISTS care_team_note (
+  id BIGSERIAL PRIMARY KEY,
+  care_team_id BIGINT REFERENCES care_team(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS care_team_note_team_idx ON care_team_note (care_team_id);
+

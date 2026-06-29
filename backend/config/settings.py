@@ -75,15 +75,9 @@ WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
 DATABASE_URL = os.getenv("SHIN_DATABASE_URL") or os.getenv("DATABASE_URL")
-if DATABASE_URL:
-  DATABASES = {"default": parse_database_url(DATABASE_URL)}
-else:
-  DATABASES = {
-    "default": {
-      "ENGINE": "django.db.backends.sqlite3",
-      "NAME": BASE_DIR / "db.sqlite3",
-    }
-  }
+if not DATABASE_URL:
+  raise ValueError("Neither SHIN_DATABASE_URL nor DATABASE_URL environment variable is set.")
+DATABASES = {"default": parse_database_url(DATABASE_URL)}
 
 TEMPLATES = [
   {

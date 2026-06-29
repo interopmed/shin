@@ -16,32 +16,132 @@ function Icon({ name }: { name: "clock" | "globe" | "db" | "lock" | "finger" | "
 
 function SettingRow({
   setting,
-  onToggle,
+  currentValue,
+  onChange,
 }: {
   setting: SystemSettingRecord;
-  onToggle: (setting: SystemSettingRecord) => void;
+  currentValue: string;
+  onChange: (value: string) => void;
 }) {
   const isBoolean = setting.kind === "boolean";
-  const enabled = setting.value.toLowerCase() === "true" || setting.value === "Enabled";
+  const isChoice = setting.kind === "choice";
+  const enabled = currentValue.toLowerCase() === "true" || currentValue === "Enabled";
+
+  const isTimezone = setting.key === "timezone.default";
+  const isRetention = setting.key === "retention.audit";
+  const isLanguage = setting.key === "language.default";
+  const isBackup = setting.key === "backup.schedule";
+  const isBiometric = setting.key === "iam.biometric.policy";
+  const isPhiAccess = setting.key === "privacy.access.preferences";
+
+  // Hide edit interface for language.default as requested ("remove language select")
+  const isEditable = setting.isEditable && !isLanguage;
 
   return (
-    <button className="system-list-item" type="button" onClick={() => isBoolean && setting.isEditable && onToggle(setting)}>
+    <div className="system-list-item">
       <Icon name={setting.section.includes("Privacy") ? "lock" : setting.section.includes("IAM") ? "role" : setting.section.includes("Audit") ? "db" : "globe"} />
       <span>
         <b>{setting.label}</b>
         <small>{setting.detail}</small>
       </span>
-      <strong className={setting.tone === "success" ? "success" : setting.tone === "warning" ? "connected" : ""}>
-        {isBoolean ? (enabled ? "Enabled" : "Disabled") : setting.value}
-      </strong>
-      <i>{setting.isEditable && isBoolean ? "toggle" : ">"}</i>
-    </button>
+      <div>
+        {isEditable ? (
+          isTimezone ? (
+            <select
+              value={currentValue}
+              onChange={(e) => onChange(e.target.value)}
+              className="system-setting-select"
+            >
+              <option value="Asia/Colombo">Asia/Colombo</option>
+              <option value="UTC">UTC</option>
+              <option value="America/New_York">America/New_York</option>
+              <option value="Europe/London">Europe/London</option>
+              <option value="Asia/Singapore">Asia/Singapore</option>
+            </select>
+          ) : isRetention ? (
+            <select
+              value={currentValue}
+              onChange={(e) => onChange(e.target.value)}
+              className="system-setting-select"
+            >
+              <option value="1 year">1 year</option>
+              <option value="2 years">2 years</option>
+              <option value="3 years">3 years</option>
+              <option value="5 years">5 years</option>
+              <option value="10 years">10 years</option>
+            </select>
+          ) : isBackup ? (
+            <select
+              value={currentValue}
+              onChange={(e) => onChange(e.target.value)}
+              className="system-setting-select"
+            >
+              <option value="Hourly">Hourly</option>
+              <option value="Nightly">Nightly</option>
+              <option value="Weekly">Weekly</option>
+              <option value="Monthly">Monthly</option>
+            </select>
+          ) : isBiometric ? (
+            <select
+              value={currentValue}
+              onChange={(e) => onChange(e.target.value)}
+              className="system-setting-select"
+            >
+              <option value="Configured">Configured</option>
+              <option value="Enforced">Enforced</option>
+              <option value="Disabled">Disabled</option>
+            </select>
+          ) : isPhiAccess ? (
+            <select
+              value={currentValue}
+              onChange={(e) => onChange(e.target.value)}
+              className="system-setting-select"
+            >
+              <option value="Set individual privacy rules">Set individual privacy rules</option>
+              <option value="Enforce global defaults">Enforce global defaults</option>
+              <option value="Restrict all PHI access">Restrict all PHI access</option>
+            </select>
+          ) : isBoolean ? (
+            <select
+              value={currentValue}
+              onChange={(e) => onChange(e.target.value)}
+              className="system-setting-select"
+            >
+              <option value="true">Enabled</option>
+              <option value="false">Disabled</option>
+            </select>
+          ) : isChoice ? (
+            <select
+              value={currentValue}
+              onChange={(e) => onChange(e.target.value)}
+              className="system-setting-select"
+            >
+              <option value="Opt-In">Opt-In</option>
+              <option value="Opt-Out">Opt-Out</option>
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={currentValue}
+              onChange={(e) => onChange(e.target.value)}
+              className="system-setting-input"
+            />
+          )
+        ) : (
+          <strong className={setting.tone === "success" ? "success" : setting.tone === "warning" ? "connected" : ""}>
+            {isBoolean ? (enabled ? "Enabled" : "Disabled") : currentValue}
+          </strong>
+        )}
+      </div>
+      <i style={{ color: isEditable ? "#2f66d9" : "#64748b" }}>
+        {isEditable ? "✎" : "🔒"}
+      </i>
+    </div>
   );
 }
 
 function ModulePanel({ contribution }: { contribution: ModuleContribution }) {
   const sections = contribution.dashboardSections;
-  const quickActions = contribution.quickActions;
 
   return (
     <section className="system-panel">
@@ -53,7 +153,7 @@ function ModulePanel({ contribution }: { contribution: ModuleContribution }) {
         {sections.length > 0 ? (
           sections.map((section) => (
             <div className="system-list-item module" key={`${contribution.moduleId}-${section.title}`}>
-              <span className="system-check">v</span>
+              <span className="system-check">✓</span>
               <span>
                 <b>{section.title}</b>
                 <small>{section.description ?? "Module dashboard section"}</small>
@@ -64,7 +164,7 @@ function ModulePanel({ contribution }: { contribution: ModuleContribution }) {
           ))
         ) : (
           <div className="system-list-item module">
-            <span className="system-check">v</span>
+            <span className="system-check">✓</span>
             <span>
               <b>{contribution.label}</b>
               <small>{contribution.dashboardCards[0]?.detail ?? "Installed module"}</small>
@@ -74,9 +174,10 @@ function ModulePanel({ contribution }: { contribution: ModuleContribution }) {
           </div>
         )}
       </div>
-      {quickActions.length > 0 ? (
+      {contribution.quickActions.length > 0 ? (
         <p className="system-panel-copy">
-          {quickActions[0].label} and module setup follow the installed module manifest. <Link href={quickActions[0].href}>Open module</Link>
+          {contribution.quickActions[0].label} and module setup follow the installed module manifest.{" "}
+          <Link href={contribution.quickActions[0].href}>Open module</Link>
         </p>
       ) : null}
     </section>
@@ -85,31 +186,59 @@ function ModulePanel({ contribution }: { contribution: ModuleContribution }) {
 
 export default function SettingsClient({ initialSettings, moduleContributions }: SettingsClientProps) {
   const [settings, setSettings] = useState<SettingsResult>(initialSettings);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [editedValues, setEditedValues] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const settingsBySection = useMemo(() => settings.sections, [settings]);
 
-  async function toggleSetting(setting: SystemSettingRecord) {
-    const nextValue = setting.value.toLowerCase() === "true" || setting.value === "Enabled" ? false : true;
-    setSavingId(setting.id);
+  // Track modification count
+  const changesCount = Object.keys(editedValues).length;
+
+  const handleValueChange = (id: string, value: string) => {
+    setSuccess("");
     setError("");
+    setEditedValues((prev) => ({
+      ...prev,
+      [id]: value,
+    }));
+  };
+
+  const handleSaveChanges = async () => {
+    if (changesCount === 0) return;
+
+    setSaving(false);
+    setError("");
+    setSuccess("");
 
     try {
-      const updated = await updateSetting(setting.id, { value: nextValue });
-      setSettings((current) => ({
-        ...current,
-        sections: current.sections.map((section) => ({
-          ...section,
-          items: section.items.map((item) => (item.id === updated.id ? updated : item)),
-        })),
-      }));
+      const updatePromises = Object.entries(editedValues).map(([id, val]) => {
+        let patchValue: any = val;
+        if (val === "true") patchValue = true;
+        if (val === "false") patchValue = false;
+        return updateSetting(id, { value: patchValue });
+      });
+
+      await Promise.all(updatePromises);
+
+      // Reload settings from the database
+      const reloaded = await getSettings();
+      setSettings(reloaded);
+      setEditedValues({});
+      setSuccess("All configuration settings successfully saved to database!");
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to update setting.");
+      setError(nextError instanceof Error ? nextError.message : "Unable to save settings changes.");
     } finally {
-      setSavingId(null);
+      setSaving(false);
     }
-  }
+  };
+
+  const handleDiscardChanges = () => {
+    setEditedValues({});
+    setError("");
+    setSuccess("");
+  };
 
   function renderSection(title: string) {
     const section = settingsBySection.find((item) => item.section === title);
@@ -124,11 +253,20 @@ export default function SettingsClient({ initialSettings, moduleContributions }:
           <button aria-label={`More actions for ${title}`} type="button">:</button>
         </header>
         <div className="system-list">
-          {section.items.map((item) => (
-            <div key={item.id} style={{ opacity: savingId === item.id ? 0.7 : 1 }}>
-              <SettingRow setting={item} onToggle={toggleSetting} />
-            </div>
-          ))}
+          {section.items
+            .filter((item) => item.key !== "language.default")
+            .map((item) => {
+              const currentValue = editedValues[item.id] !== undefined ? editedValues[item.id] : item.value;
+              return (
+                <div key={item.id}>
+                  <SettingRow
+                    setting={item}
+                    currentValue={currentValue}
+                    onChange={(val) => handleValueChange(item.id, val)}
+                  />
+                </div>
+              );
+            })}
         </div>
       </section>
     );
@@ -146,19 +284,46 @@ export default function SettingsClient({ initialSettings, moduleContributions }:
         <header className="system-settings-header">
           <div>
             <h1>SHIN System Administration</h1>
-            <p className="muted">Database-backed settings with module behavior from the installed lab module logic.</p>
+            <p className="muted">
+              Database-backed settings with module behavior from the installed lab module logic.
+              {changesCount > 0 && (
+                <span style={{ color: "#2f66d9", fontWeight: "900", marginLeft: "8px" }}>
+                  ({changesCount} pending changes)
+                </span>
+              )}
+            </p>
           </div>
           <div className="system-settings-actions">
-            <button className="system-primary-button" type="button" onClick={async () => setSettings(await getSettings())}>
-              Save Changes
+            <button
+              className="system-primary-button"
+              type="button"
+              onClick={handleSaveChanges}
+              disabled={changesCount === 0 || saving}
+              style={{ opacity: changesCount === 0 || saving ? 0.6 : 1 }}
+            >
+              {saving ? "Saving..." : "Save Changes"}
             </button>
-            <button className="system-secondary-button" type="button" onClick={() => setSettings(initialSettings)}>
+            <button
+              className="system-secondary-button"
+              type="button"
+              onClick={handleDiscardChanges}
+              disabled={changesCount === 0 || saving}
+              style={{ opacity: changesCount === 0 || saving ? 0.6 : 1 }}
+            >
               Discard
             </button>
           </div>
         </header>
 
         {error ? <div className="system-settings-banner">{error}</div> : null}
+        {success ? (
+          <div
+            className="system-settings-banner"
+            style={{ background: "#ecfdf5", borderBottom: "1px solid #a7f3d0", color: "#065f46" }}
+          >
+            {success}
+          </div>
+        ) : null}
 
         <section className="system-settings-grid">
           <div className="system-column">
@@ -190,7 +355,8 @@ export default function SettingsClient({ initialSettings, moduleContributions }:
                 <button aria-label="More actions for Available Extensions" type="button">:</button>
               </header>
               <p className="system-panel-copy">
-                Approved modules surface from the installed registry and their setup checklist logic. <Link href="/modules">Open module registry</Link>
+                Approved modules surface from the installed registry and their setup checklist logic.{" "}
+                <Link href="/modules">Open module registry</Link>
               </p>
             </section>
 

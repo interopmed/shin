@@ -17,8 +17,8 @@ function isActive(pathname: string, href: string) {
     return pathname === "/";
   }
 
-  if (cleanHref === "/patients") {
-    return pathname === "/patients" || (pathname.startsWith("/patients/") && !pathname.startsWith("/patients/mpi"));
+  if (cleanHref === "/modules/ehr/patients") {
+    return pathname === "/modules/ehr/patients" || (pathname.startsWith("/modules/ehr/patients/") && !pathname.startsWith("/patients/mpi"));
   }
 
   if (cleanHref.startsWith("/modules/") && cleanHref.split("/").length === 3) {

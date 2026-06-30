@@ -20,7 +20,7 @@ export default async function MasterPatientIndexPage() {
       <nav className="facility-breadcrumb" aria-label="Breadcrumb">
         <Link href="/dashboard">Dashboard</Link>
         <span className="separator">/</span>
-        <Link href="/patients">Patients</Link>
+        <Link href="/modules/ehr/patients">Patients</Link>
         <span className="separator">/</span>
         <span className="current">MPI</span>
       </nav>
@@ -34,7 +34,7 @@ export default async function MasterPatientIndexPage() {
               · {mpi.summary.assignedDoctorLinks} assigned doctor link{mpi.summary.assignedDoctorLinks === 1 ? "" : "s"}
             </p>
           </div>
-          <Link className="mpi-primary-button" href="/patients">
+          <Link className="mpi-primary-button" href="/modules/ehr/patients">
             + Add New Patient
           </Link>
         </header>
@@ -105,7 +105,7 @@ export default async function MasterPatientIndexPage() {
                     </div>
                   </td>
                   <td>
-                    <Link className={`mpi-action-pill ${patient.tone}`} href={`/patients/${patient.id}`}>
+                    <Link className={`mpi-action-pill ${patient.tone}`} href={`/modules/ehr/patients/${patient.id}`}>
                       {patient.action}
                     </Link>
                   </td>

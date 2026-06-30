@@ -55,7 +55,6 @@ export function getNavigationGroups(): NavigationGroup[] {
           {
             label: "Patients",
             items: [
-              { label: "Patient Directory", href: "/patients", detail: "Patient list", icon: "user" },
               { label: "MPI", href: "/patients/mpi", detail: "Master patient index", icon: "activity" },
               ...moduleItemsForSection("Patients"),
             ],

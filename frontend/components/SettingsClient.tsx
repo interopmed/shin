@@ -4,10 +4,31 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { type ModuleContribution } from "../lib/module-contributions";
 import { getSettings, updateSetting, type SettingsResult, type SystemSettingRecord } from "../lib/settings-db";
+import { type ShinNodeState } from "../lib/node-state";
+import {
+  disableModuleAction,
+  enableModuleAction,
+  installModuleAction,
+  uninstallModuleAction,
+} from "../app/modules/actions";
 
 type SettingsClientProps = {
   initialSettings: SettingsResult;
   moduleContributions: ModuleContribution[];
+  nodeState: ShinNodeState;
+  registry: {
+    platformVersion: string;
+    manifests: {
+      moduleId: string;
+      name: string;
+      version: string;
+      category: string;
+      description: string;
+      repositoryUrl: string;
+      permissions: string[];
+      routes: any[];
+    }[];
+  };
 };
 
 function Icon({ name }: { name: "clock" | "globe" | "db" | "lock" | "finger" | "role" | "list" | "bell" | "session" | "moon" | "access" }) {
@@ -211,8 +232,9 @@ function ModulePanel({ contribution }: { contribution: ModuleContribution }) {
   );
 }
 
-export default function SettingsClient({ initialSettings, moduleContributions }: SettingsClientProps) {
+export default function SettingsClient({ initialSettings, moduleContributions, nodeState, registry }: SettingsClientProps) {
   const [settings, setSettings] = useState<SettingsResult>(initialSettings);
+  const [activeTab, setActiveTab] = useState<"infrastructure" | "modules" | "feeds" | "audit">("infrastructure");
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -220,6 +242,29 @@ export default function SettingsClient({ initialSettings, moduleContributions }:
   const [showHelp, setShowHelp] = useState(false);
 
   const settingsBySection = useMemo(() => settings.sections, [settings]);
+
+  const installedModules = useMemo(() => new Map(nodeState.installedModules.map((module) => [module.moduleId, module])), [nodeState.installedModules]);
+  const approvedModuleIds = useMemo(() => new Set(registry.manifests.map((module) => module.moduleId)), [registry.manifests]);
+  const moduleRows = useMemo(() => [
+    ...registry.manifests.map((module) => ({ ...module, approved: true })),
+    ...nodeState.installedModules
+      .filter((module) => !approvedModuleIds.has(module.moduleId))
+      .map((module) => ({
+        moduleId: module.moduleId,
+        name: module.name,
+        version: module.manifestVersion,
+        category: "installed",
+        description: "Installed module discovered from this SHIN Node state.",
+        repositoryUrl: module.repositoryUrl,
+        minPlatformVersion: nodeState.platformVersion,
+        dependencies: [],
+        permissions: module.permissions ?? [],
+        routes: module.routes ?? [],
+        events: { publishes: [], subscribes: [] },
+        setupChecklist: module.setupChecklist ?? [],
+        approved: false,
+      })),
+  ], [registry.manifests, nodeState.installedModules, approvedModuleIds, nodeState.platformVersion]);
 
   // Track modification count
   const changesCount = Object.keys(editedValues).length;
@@ -275,10 +320,10 @@ export default function SettingsClient({ initialSettings, moduleContributions }:
     }
 
     return (
-      <section className="system-panel">
-        <header>
-          <h2>{title}</h2>
-          <button aria-label={`More actions for ${title}`} type="button">:</button>
+      <section className="system-panel" style={{ border: "1px solid #e2e8f0", borderRadius: "12px", overflow: "hidden", marginBottom: "20px", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.02)" }}>
+        <header style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", padding: "12px 16px", minHeight: "auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: "600", color: "#1e293b" }}>{title}</h2>
+          <button aria-label={`More actions for ${title}`} type="button" style={{ background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontSize: "16px" }}>:</button>
         </header>
         <div className="system-list">
           {section.items
@@ -308,14 +353,14 @@ export default function SettingsClient({ initialSettings, moduleContributions }:
         <span className="current">Settings</span>
       </nav>
 
-      <div className="system-settings-card">
-        <header className="system-settings-header">
+      <div className="system-settings-card" style={{ border: "1px solid #e2e8f0", borderRadius: "16px", boxShadow: "0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.05)", overflow: "hidden" }}>
+        <header className="system-settings-header" style={{ padding: "24px 24px 18px", borderBottom: "1px solid #f1f5f9" }}>
           <div>
-            <h1>SHIN System Administration</h1>
-            <p className="muted">
+            <h1 style={{ color: "#0f172a", fontWeight: "700", letterSpacing: "-0.025em" }}>SHIN System Administration</h1>
+            <p className="muted" style={{ fontSize: "14px", marginTop: "4px" }}>
               Database-backed settings with module behavior from the installed lab module logic.
               {changesCount > 0 && (
-                <span style={{ color: "#2f66d9", fontWeight: "900", marginLeft: "8px" }}>
+                <span style={{ color: "#2f66d9", fontWeight: "700", marginLeft: "8px" }}>
                   ({changesCount} pending changes)
                 </span>
               )}
@@ -327,7 +372,7 @@ export default function SettingsClient({ initialSettings, moduleContributions }:
               type="button"
               onClick={handleSaveChanges}
               disabled={changesCount === 0 || saving}
-              style={{ opacity: changesCount === 0 || saving ? 0.6 : 1 }}
+              style={{ opacity: changesCount === 0 || saving ? 0.6 : 1, borderRadius: "8px", fontWeight: "600" }}
             >
               {saving ? "Saving..." : "Save Changes"}
             </button>
@@ -336,7 +381,7 @@ export default function SettingsClient({ initialSettings, moduleContributions }:
               type="button"
               onClick={handleDiscardChanges}
               disabled={changesCount === 0 || saving}
-              style={{ opacity: changesCount === 0 || saving ? 0.6 : 1 }}
+              style={{ opacity: changesCount === 0 || saving ? 0.6 : 1, borderRadius: "8px", fontWeight: "600", borderColor: "#e2e8f0" }}
             >
               Discard
             </button>
@@ -353,50 +398,242 @@ export default function SettingsClient({ initialSettings, moduleContributions }:
           </div>
         ) : null}
 
-        <section className="system-settings-grid">
-          <div className="system-column">
-            <h2 className="system-column-title">Platform Infrastructure</h2>
-            {renderSection("Global Configuration")}
-            {renderSection("Authentication & IAM")}
-            {renderSection("API & Webhooks")}
+        {/* Dynamic Segmented Tab Bar */}
+        <div style={{ padding: "20px 24px 4px" }}>
+          <div style={{ display: "inline-flex", background: "#f1f5f9", padding: "4px", borderRadius: "12px" }}>
+            <button
+              onClick={() => setActiveTab("infrastructure")}
+              style={{
+                background: activeTab === "infrastructure" ? "#ffffff" : "transparent",
+                border: "none",
+                borderRadius: "8px",
+                color: activeTab === "infrastructure" ? "#0f172a" : "#64748b",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "600",
+                padding: "8px 16px",
+                boxShadow: activeTab === "infrastructure" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                transition: "all 0.2s"
+              }}
+              type="button"
+            >
+              Platform Infrastructure
+            </button>
+            <button
+              onClick={() => setActiveTab("modules")}
+              style={{
+                background: activeTab === "modules" ? "#ffffff" : "transparent",
+                border: "none",
+                borderRadius: "8px",
+                color: activeTab === "modules" ? "#0f172a" : "#64748b",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "600",
+                padding: "8px 16px",
+                boxShadow: activeTab === "modules" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                transition: "all 0.2s"
+              }}
+              type="button"
+            >
+              Modular Integration
+            </button>
+            <button
+              onClick={() => setActiveTab("feeds")}
+              style={{
+                background: activeTab === "feeds" ? "#ffffff" : "transparent",
+                border: "none",
+                borderRadius: "8px",
+                color: activeTab === "feeds" ? "#0f172a" : "#64748b",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "600",
+                padding: "8px 16px",
+                boxShadow: activeTab === "feeds" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                transition: "all 0.2s"
+              }}
+              type="button"
+            >
+              External Data Feeds
+            </button>
+            <button
+              onClick={() => setActiveTab("audit")}
+              style={{
+                background: activeTab === "audit" ? "#ffffff" : "transparent",
+                border: "none",
+                borderRadius: "8px",
+                color: activeTab === "audit" ? "#0f172a" : "#64748b",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "600",
+                padding: "8px 16px",
+                boxShadow: activeTab === "audit" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                transition: "all 0.2s"
+              }}
+              type="button"
+            >
+              Global Audit & Provenance
+            </button>
           </div>
+        </div>
 
-          <div className="system-column">
-            <h2 className="system-column-title">Modular Integration</h2>
-            <section className="system-panel">
-              <header>
-                <h2>Module Management</h2>
-                <button aria-label="More actions for Module Management" type="button">:</button>
-              </header>
-              <div className="system-list">
-                {moduleContributions.map((contribution) => (
-                  <div key={contribution.moduleId} className="system-panel-module">
-                    <ModulePanel contribution={contribution} />
-                  </div>
-                ))}
-              </div>
-            </section>
+        <section className="system-settings-grid" style={{ gridTemplateColumns: "1fr", maxWidth: "800px", padding: "16px 24px 40px" }}>
+          {activeTab === "infrastructure" && (
+            <div className="system-column" style={{ gap: "16px" }}>
+              <h2 className="system-column-title" style={{ display: "none" }}>Platform Infrastructure</h2>
+              {renderSection("Global Configuration")}
+              {renderSection("Authentication & IAM")}
+              {renderSection("API & Webhooks")}
+            </div>
+          )}
 
-            <section className="system-panel">
-              <header>
-                <h2>Available Extensions</h2>
-                <button aria-label="More actions for Available Extensions" type="button">:</button>
-              </header>
-              <p className="system-panel-copy">
-                Approved modules surface from the installed registry and their setup checklist logic.{" "}
-                <Link href="/modules">Open module registry</Link>
-              </p>
-            </section>
+          {activeTab === "modules" && (
+            <div className="system-column" style={{ gap: "20px" }}>
+              <h2 className="system-column-title" style={{ display: "none" }}>Modular Integration</h2>
+              
+              <section className="system-panel" style={{ border: "1px solid #e2e8f0", borderRadius: "12px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+                <header style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", padding: "12px 16px", minHeight: "auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <h2 style={{ fontSize: "16px", fontWeight: "600", color: "#1e293b" }}>Module Installation & Status</h2>
+                  <button aria-label="More actions for Module Installation" type="button" style={{ background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontSize: "16px" }}>:</button>
+                </header>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px", padding: "16px", background: "#ffffff" }}>
+                  {moduleRows.map((module) => {
+                    const installed = installedModules.get(module.moduleId);
+                    const isEnabled = installed?.status === "enabled";
 
-            {renderSection("External Data Feeds")}
-          </div>
+                    return (
+                      <div
+                        key={module.moduleId}
+                        style={{
+                          background: "#ffffff",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "12px",
+                          padding: "16px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: "20px",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.01)"
+                        }}
+                      >
+                        <div style={{ flex: "1" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <b style={{ fontSize: "16px", color: "#0f172a", fontWeight: "600" }}>{module.name}</b>
+                            <span
+                              style={{
+                                background: isEnabled ? "#dcfce7" : installed?.status === "disabled" ? "#fee2e2" : "#f1f5f9",
+                                color: isEnabled ? "#15803d" : installed?.status === "disabled" ? "#b91c1c" : "#475467",
+                                padding: "2px 8px",
+                                borderRadius: "6px",
+                                fontSize: "11px",
+                                fontWeight: "600",
+                                textTransform: "capitalize"
+                              }}
+                            >
+                              {installed?.status ?? "available"}
+                            </span>
+                          </div>
+                          <p style={{ color: "#475467", fontSize: "13px", marginTop: "6px", lineHeight: "1.4", marginBottom: "0", fontWeight: "400" }}>
+                            {module.description}
+                          </p>
+                          <small style={{ color: "#94a3b8", fontSize: "11px", display: "block", marginTop: "8px" }}>
+                            Source: <code style={{ background: "#f8fafc", padding: "2px 4px", borderRadius: "4px" }}>{module.repositoryUrl}</code>
+                          </small>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: "0" }}>
+                          {!installed && module.approved ? (
+                            <form action={installModuleAction}>
+                              <input name="moduleId" type="hidden" value={module.moduleId} />
+                              <button className="system-primary-button" style={{ minHeight: "32px", fontSize: "12px", padding: "0 14px", borderRadius: "8px", fontWeight: "600" }} type="submit">
+                                Install
+                              </button>
+                            </form>
+                          ) : null}
+                          {installed && installed.status !== "enabled" ? (
+                            <form action={enableModuleAction}>
+                              <input name="moduleId" type="hidden" value={module.moduleId} />
+                              <button className="system-primary-button" style={{ minHeight: "32px", fontSize: "12px", padding: "0 14px", borderRadius: "8px", fontWeight: "600" }} type="submit">
+                                Enable
+                              </button>
+                            </form>
+                          ) : null}
+                          {installed?.status === "enabled" ? (
+                            <form action={disableModuleAction}>
+                              <input name="moduleId" type="hidden" value={module.moduleId} />
+                              <button className="system-secondary-button" style={{ minHeight: "32px", fontSize: "12px", padding: "0 14px", borderRadius: "8px", fontWeight: "600", borderColor: "#e2e8f0" }} type="submit">
+                                Disable
+                              </button>
+                            </form>
+                          ) : null}
+                          {installed ? (
+                            <form action={uninstallModuleAction}>
+                              <input name="moduleId" type="hidden" value={module.moduleId} />
+                              <button
+                                className="system-secondary-button"
+                                style={{
+                                  minHeight: "32px",
+                                  fontSize: "12px",
+                                  padding: "0 14px",
+                                  borderRadius: "8px",
+                                  fontWeight: "600",
+                                  borderColor: "#fecaca",
+                                  color: "#dc2626",
+                                  background: "#fff5f5"
+                                }}
+                                type="submit"
+                              >
+                                Uninstall
+                              </button>
+                            </form>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
 
-          <div className="system-column">
-            <h2 className="system-column-title">Global Audit & Provenance</h2>
-            {renderSection("Global Audit & Provenance")}
-            {renderSection("Data Privacy & Consent")}
-            {renderSection("System Backup & Recovery")}
-          </div>
+              <section className="system-panel" style={{ border: "1px solid #e2e8f0", borderRadius: "12px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+                <header style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", padding: "12px 16px", minHeight: "auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <h2 style={{ fontSize: "16px", fontWeight: "600", color: "#1e293b" }}>Module Contributions</h2>
+                  <button aria-label="More actions for Module Management" type="button" style={{ background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontSize: "16px" }}>:</button>
+                </header>
+                <div className="system-list">
+                  {moduleContributions.map((contribution) => (
+                    <div key={contribution.moduleId} className="system-panel-module" style={{ borderBottom: "1px solid #f1f5f9", padding: "12px 16px", background: "#ffffff" }}>
+                      <ModulePanel contribution={contribution} />
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="system-panel" style={{ border: "1px solid #e2e8f0", borderRadius: "12px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+                <header style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", padding: "12px 16px", minHeight: "auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <h2 style={{ fontSize: "16px", fontWeight: "600", color: "#1e293b" }}>Available Extensions</h2>
+                  <button aria-label="More actions for Available Extensions" type="button" style={{ background: "transparent", border: "none", color: "#64748b", cursor: "pointer", fontSize: "16px" }}>:</button>
+                </header>
+                <p className="system-panel-copy" style={{ padding: "16px", background: "#ffffff", margin: "0", fontSize: "14px" }}>
+                  Approved modules surface from the installed registry and their setup checklist logic.{" "}
+                  <Link href="/modules" style={{ color: "#2f66d9", fontWeight: "600" }}>Open module registry</Link>
+                </p>
+              </section>
+            </div>
+          )}
+
+          {activeTab === "feeds" && (
+            <div className="system-column" style={{ gap: "16px" }}>
+              <h2 className="system-column-title" style={{ display: "none" }}>External Data Feeds</h2>
+              {renderSection("External Data Feeds")}
+            </div>
+          )}
+
+          {activeTab === "audit" && (
+            <div className="system-column" style={{ gap: "16px" }}>
+              <h2 className="system-column-title" style={{ display: "none" }}>Global Audit & Provenance</h2>
+              {renderSection("Global Audit & Provenance")}
+              {renderSection("Data Privacy & Consent")}
+              {renderSection("System Backup & Recovery")}
+            </div>
+          )}
         </section>
 
         <button className="system-help-button" type="button" onClick={() => setShowHelp(true)}>

@@ -70,7 +70,7 @@ export default function DashboardPage() {
   const roleContent = roleCopy[activeUser.role];
   const heroActions = visibleItems(
     [
-      { label: "Patient index", detail: "Clinical access", href: "/patients", requiredPermissions: ["patient.read"] },
+      { label: "Patient index", detail: "Clinical access", href: "/modules/ehr/patients", requiredPermissions: ["patient.read"] },
       { label: "Manage modules", detail: "Administration", href: "/modules", requiredPermissions: ["module.manage"] },
       { label: "Audit activity", detail: "Governance", href: "/foundation/audit", requiredPermissions: ["audit.read"] },
       { label: "Event stream", detail: "Activity feed", href: "/foundation/events", requiredPermissions: ["event.read"] },
@@ -103,7 +103,7 @@ export default function DashboardPage() {
     [
       { label: "Review registry", href: "/modules", requiredPermissions: ["module.manage"] },
       { label: "Audit activity", href: "/foundation/audit", requiredPermissions: ["audit.read"] },
-      { label: "Open patients", href: "/patients", requiredPermissions: ["patient.read"] },
+      { label: "Open patients", href: "/modules/ehr/patients", requiredPermissions: ["patient.read"] },
     ],
     activeUser
   );

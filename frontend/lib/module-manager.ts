@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import registry from "../config/approved-modules.json";
 import { applyModuleMigrations, type ModuleDatabaseManifest } from "./module-db";
@@ -24,7 +24,30 @@ type ModuleManifest = {
   setupChecklist?: string[];
 } & ModuleDatabaseManifest;
 
-const stateDir = path.join(process.cwd(), ".shin-node");
+function getWorkspaceRoot(): string {
+  const cwd = process.cwd();
+  if (path.basename(cwd) === "frontend" && path.basename(path.resolve(cwd, "..")) === "shin") {
+    return path.resolve(cwd, "..", "..");
+  }
+  if (path.basename(cwd) === "shin") {
+    return path.resolve(cwd, "..");
+  }
+  let current = cwd;
+  while (true) {
+    if (existsSync(path.join(current, "shin")) && existsSync(path.join(current, "shin-ehr"))) {
+      return current;
+    }
+    const parent = path.resolve(current, "..");
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return cwd;
+}
+
+const workspaceRoot = getWorkspaceRoot();
+const stateDir = path.join(workspaceRoot, "shin", ".shin-node");
 const statePath = path.join(stateDir, "state.json");
 const modulesDir = path.join(stateDir, "modules");
 
@@ -157,10 +180,26 @@ export async function installModule(moduleId: string, requestedRef?: string) {
   const { moduleDir, repoDir, manifestPath } = moduleInstallPaths(moduleId);
   mkdirSync(moduleDir, { recursive: true });
   if (existsSync(repoDir)) {
-    rmSync(repoDir, { recursive: true, force: true });
+    const oldDir = `${repoDir}_old_${Date.now()}`;
+    try {
+      renameSync(repoDir, oldDir);
+      try {
+        rmSync(oldDir, { recursive: true, force: true });
+      } catch (err) {
+        // Ignore background cleanup failures if files are locked by the dev server watchpack
+      }
+    } catch (e) {
+      // Fallback if renaming is blocked
+      rmSync(repoDir, { recursive: true, force: true });
+    }
   }
 
-  execFileSync("git", ["clone", "--depth", "1", "--branch", ref, manifest.repositoryUrl, repoDir], {
+  let cloneUrl = manifest.repositoryUrl;
+  if (cloneUrl.startsWith("..")) {
+    cloneUrl = path.resolve(workspaceRoot, cloneUrl.replace(/^\.\.\//, ""));
+  }
+
+  execFileSync("git", ["clone", "--depth", "1", "--branch", ref, cloneUrl, repoDir], {
     cwd: process.cwd(),
     stdio: "ignore",
   });

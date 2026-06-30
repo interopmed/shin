@@ -1,9 +1,5 @@
-import PatientDirectoryClient from "../../components/PatientDirectoryClient";
-import { getDoctorOptions, getPatientDirectory } from "../../lib/patients-db";
+import { notFound } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function PatientDirectoryPage() {
-  const [directory, doctors] = await Promise.all([getPatientDirectory(), getDoctorOptions()]);
-  return <PatientDirectoryClient {...directory} doctors={doctors} />;
+export default function DeprecatedPatientsPage() {
+  notFound();
 }

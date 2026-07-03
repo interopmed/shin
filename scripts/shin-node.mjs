@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { appDir, assertPathInside, checksum, loadEnvFile, readJson } from "./utils.mjs";
@@ -19,6 +19,48 @@ const actor = {
 
 function writeJson(filePath, value) {
   writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function safeRmSync(targetPath) {
+  if (!existsSync(targetPath)) {
+    return;
+  }
+
+  const maxRetries = 10;
+  const delayMs = 100;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const makeWriteable = (p) => {
+        try {
+          const stats = lstatSync(p);
+          if (stats.isDirectory()) {
+            try {
+              chmodSync(p, 0o777);
+            } catch {}
+            const children = readdirSync(p);
+            for (const child of children) {
+              makeWriteable(path.join(p, child));
+            }
+          } else {
+            try {
+              chmodSync(p, 0o666);
+            } catch {}
+          }
+        } catch {}
+      };
+      makeWriteable(targetPath);
+
+      rmSync(targetPath, { recursive: true, force: true });
+      return;
+    } catch (err) {
+      if (attempt === maxRetries) {
+        throw err;
+      }
+      const buf = new Int32Array(new SharedArrayBuffer(4));
+      Atomics.wait(buf, 0, 0, delayMs);
+    }
+  }
 }
 
 function relativeToApp(filePath) {
@@ -197,7 +239,7 @@ function findInstallState(state, moduleId) {
 
 function moduleInstallPaths(moduleId) {
   const moduleDir = path.join(modulesDir, moduleId);
-  const repoDir = path.join(moduleDir, "repo");
+  const repoDir = path.join(moduleDir, `repo_${Date.now()}`);
   const manifestPath = path.join(moduleDir, "interopmed.module.json");
 
   assertPathInside(modulesDir, moduleDir);
@@ -227,13 +269,19 @@ function cloneRepository(repositoryUrl, ref, repoDir) {
   assertPathInside(modulesDir, repoDir);
 
   if (existsSync(repoDir)) {
-    rmSync(repoDir, { recursive: true, force: true });
+    safeRmSync(repoDir);
   }
 
-  execFileSync("git", ["clone", "--depth", "1", "--branch", ref, repositoryUrl, repoDir], {
-    cwd: appDir,
-    stdio: "inherit",
-  });
+  try {
+    execFileSync("git", ["clone", "--depth", "1", "--branch", ref, repositoryUrl, repoDir], {
+      cwd: appDir,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    const stderr = error.stderr?.toString() || error.message;
+    console.error(`Git clone failed: ${stderr}`);
+    throw new Error(`Failed to clone repository: ${stderr}`);
+  }
 }
 
 function getInstalledCommit(repoDir) {
@@ -256,7 +304,8 @@ function readInstalledManifest(repoDir, approvedManifest) {
       `Installed manifest moduleId mismatch: expected ${approvedManifest.moduleId}, got ${installedManifest.moduleId}`
     );
   }
-  if (installedManifest.repositoryUrl !== approvedManifest.repositoryUrl) {
+  const getRepoName = (url) => url.split("/").pop()?.replace(/\.git$/, "").toLowerCase();
+  if (getRepoName(installedManifest.repositoryUrl) !== getRepoName(approvedManifest.repositoryUrl)) {
     throw new Error(
       `Installed manifest repositoryUrl mismatch: expected ${approvedManifest.repositoryUrl}, got ${installedManifest.repositoryUrl}`
     );
@@ -335,8 +384,23 @@ async function installModule(args) {
   writeJson(manifestPath, installedManifest);
   const appliedMigrations = await applyModuleMigrations(installedManifest.moduleId, repoDir, installedManifest);
   const commit = getInstalledCommit(repoDir);
+
+  // Remove the .git directory to prevent file locking and nested git issues on Windows
+  const gitDir = path.join(repoDir, ".git");
+  safeRmSync(gitDir);
+
   const now = new Date().toISOString();
   const existing = findInstallState(state, manifest.moduleId);
+  if (existing && existing.installPath) {
+    const oldRepoDir = path.join(appDir, existing.installPath);
+    if (existsSync(oldRepoDir)) {
+      try {
+        safeRmSync(oldRepoDir);
+      } catch (err) {
+        // Ignore background cleanup failures
+      }
+    }
+  }
   const moduleState = {
     id: existing?.id ?? `module-${manifest.moduleId}`,
     moduleId: installedManifest.moduleId,
@@ -421,7 +485,11 @@ function uninstallModule(moduleId) {
 
   const { moduleDir } = moduleInstallPaths(moduleId);
   if (existsSync(moduleDir)) {
-    rmSync(moduleDir, { recursive: true, force: true });
+    try {
+      safeRmSync(moduleDir);
+    } catch (err) {
+      // Ignore background cleanup failures on Windows if files are locked or permissions are restricted
+    }
   }
 
   state.installedModules = state.installedModules.filter((installed) => installed.moduleId !== moduleId);

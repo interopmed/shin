@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
           "**/node_modules/**",
           "**/.git/**",
           "**/.next/**",
+          "**/.shin-node/**",
           "**/System Volume Information/**",
         ],
       };

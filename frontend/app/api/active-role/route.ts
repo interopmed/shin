@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
-import { isActiveUserRole, roleLabels, roleProfiles } from "../../../lib/node-state";
+import { getShinNodeStateDir, isActiveUserRole, roleLabels, roleProfiles } from "../../../lib/node-state";
 
 export async function POST(request: Request) {
   const payload = (await request.json().catch(() => null)) as { role?: string } | null;
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unsupported role" }, { status: 400 });
   }
 
-  const stateDir = path.join(process.cwd(), ".shin-node");
+  const stateDir = getShinNodeStateDir();
   mkdirSync(stateDir, { recursive: true });
   writeFileSync(
     path.join(stateDir, "active-role.json"),

@@ -23,7 +23,7 @@
     "modules:health": "node scripts/shin-node.mjs modules:health",
     "db:setup": "node scripts/shin-db.mjs setup",
     "db:modules": "node scripts/shin-db.mjs modules",
-    "test": "vitest run"
+    "test": "vitest run frontend"
   },
   "dependencies": {
     "pg": "^8.22.0"

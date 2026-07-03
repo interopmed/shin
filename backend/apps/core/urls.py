@@ -22,6 +22,9 @@ from .views import (
   CareTeamViewSet,
   CareTeamNoteViewSet,
   ProviderDirectoryView,
+  TerminologyView,
+  IntegrationGatewayView,
+  ProviderDetailView,
 )
 
 router = DefaultRouter()
@@ -40,6 +43,9 @@ urlpatterns = [
   path("mpi/", MpiView.as_view()),
   path("patients/<str:patient_id>/consent/", PatientConsentView.as_view()),
   path("care-team-providers/", ProviderDirectoryView.as_view()),
+  path("foundation/terminology/", TerminologyView.as_view()),
+  path("foundation/integration/", IntegrationGatewayView.as_view()),
+  path("foundation/providers/<str:provider_id>/", ProviderDetailView.as_view()),
   path("", include(router.urls)),
   # New facility endpoint for the Facilities page
   path("facilities/", FacilityListView.as_view()),

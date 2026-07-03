@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPatientMpi } from "../../../lib/patients-db";
+import IdentityConflictQueue from "../../../components/IdentityConflictQueue";
 
 export const dynamic = "force-dynamic";
 
@@ -11,9 +12,46 @@ function MpiProgress({ value, tone }: { value: number; tone: "high" | "low" }) {
   );
 }
 
-export default async function MasterPatientIndexPage() {
-  const mpi = await getPatientMpi();
+export default async function MasterPatientIndexPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; query?: string; sex?: string; confidence?: string }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  const page = parseInt(resolvedSearchParams.page || "1", 10);
+  const query = resolvedSearchParams.query || "";
+  const sex = resolvedSearchParams.sex || "";
+  const confidenceFilter = resolvedSearchParams.confidence || "";
+  const pageSize = 10;
+
+  const mpi = await getPatientMpi(page, pageSize, query, sex, confidenceFilter);
   const loadedCount = mpi.patients.length;
+  const totalCount = mpi.pagination?.total ?? loadedCount;
+  const totalPages = mpi.pagination?.totalPages ?? 1;
+
+  const startRecord = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endRecord = Math.min(page * pageSize, totalCount);
+
+  const getPaginationRange = (current: number, total: number) => {
+    const range: (number | string)[] = [];
+    if (total <= 8) {
+      for (let i = 1; i <= total; i++) {
+        range.push(i);
+      }
+      return range;
+    }
+
+    if (current <= 4) {
+      range.push(1, 2, 3, 4, "...", total - 2, total - 1, total);
+    } else if (current >= total - 3) {
+      range.push(1, 2, 3, "...", total - 3, total - 2, total - 1, total);
+    } else {
+      range.push(1, "...", current - 1, current, current + 1, "...", total);
+    }
+    return range;
+  };
+
+  const paginationRange = getPaginationRange(page, totalPages);
 
   return (
     <section className="mpi-page">
@@ -40,18 +78,82 @@ export default async function MasterPatientIndexPage() {
         </header>
 
         <div className="mpi-toolbar">
-          <label className="mpi-search">
-            <span aria-hidden="true">O</span>
-            <input type="search" placeholder="Search MPI records" />
-          </label>
-          <div className="mpi-toolbar-actions">
-            <button className="mpi-select-button" type="button">
-              Patients v
+          <form className="mpi-search-form" method="GET" action="/patients/mpi" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
+            <label className="mpi-search" style={{ flex: '1', minWidth: '200px', maxWidth: '310px' }}>
+              <span aria-hidden="true">O</span>
+              <input type="search" name="query" defaultValue={query} placeholder="Search MPI records" />
+            </label>
+
+            <select
+              name="sex"
+              defaultValue={sex}
+              className="mpi-select-button"
+              style={{
+                height: '34px',
+                border: '1px solid #ccd6e2',
+                borderRadius: '8px',
+                padding: '0 10px',
+                fontSize: '13px',
+                fontWeight: 800,
+                color: '#111827',
+                background: '#ffffff',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">All Genders</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+            </select>
+
+            <select
+              name="confidence"
+              defaultValue={confidenceFilter}
+              className="mpi-filter-button"
+              style={{
+                height: '34px',
+                border: '1px solid #ccd6e2',
+                borderRadius: '8px',
+                padding: '0 10px',
+                fontSize: '13px',
+                fontWeight: 800,
+                color: '#111827',
+                background: '#ffffff',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">All Scores</option>
+              <option value="high">High Confidence (≥ 80%)</option>
+              <option value="low">Low Confidence (&lt; 80%)</option>
+            </select>
+
+            <button type="submit" className="mpi-primary-button" style={{ height: '34px', minHeight: '34px', padding: '0 14px', borderRadius: '8px', fontWeight: 800 }}>
+              Apply
             </button>
-            <button className="mpi-filter-button" type="button">
-              = Filter
-            </button>
-          </div>
+
+            {(query || sex || confidenceFilter) && (
+              <Link
+                href="/patients/mpi"
+                className="mpi-filter-button"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  textDecoration: 'none',
+                  minHeight: '34px',
+                  height: '34px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  background: '#f1f5f9',
+                  borderColor: '#cbd5e1'
+                }}
+              >
+                Clear
+              </Link>
+            )}
+          </form>
         </div>
 
         <nav className="mpi-tabs" aria-label="MPI views">
@@ -120,6 +222,135 @@ export default async function MasterPatientIndexPage() {
           </table>
         </div>
 
+        {/* Pagination just below the table */}
+        <div className="mpi-pagination-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '14px 24px', borderBottom: '1px solid #e3e9f1' }}>
+          <p style={{ margin: 0, fontSize: '13px', color: '#667085', fontWeight: 600 }}>
+            Showing <strong>{startRecord}-{endRecord}</strong> of <strong>{totalCount}</strong> MPI record{totalCount === 1 ? "" : "s"}
+          </p>
+
+          <div className="mpi-pagination-controls" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            {/* Previous Page Button */}
+            {page > 1 ? (
+              <Link
+                href={{
+                  pathname: "/patients/mpi",
+                  query: { page: page - 1, ...(query ? { query } : {}), ...(sex ? { sex } : {}), ...(confidenceFilter ? { confidence: confidenceFilter } : {}) },
+                }}
+                className="mpi-filter-button"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  textDecoration: 'none',
+                  minHeight: '34px',
+                  lineHeight: '34px'
+                }}
+              >
+                Previous
+              </Link>
+            ) : (
+              <span
+                className="mpi-filter-button disabled"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  color: '#98a2b3',
+                  background: '#f8fafc',
+                  borderColor: '#e2e8f0',
+                  cursor: 'not-allowed',
+                  minHeight: '34px',
+                  lineHeight: '34px'
+                }}
+              >
+                Previous
+              </span>
+            )}
+
+            {/* Page Numbers */}
+            {paginationRange.map((pageNum, index) => {
+              if (pageNum === "...") {
+                return (
+                  <span
+                    key={`ellipsis-${index}`}
+                    style={{
+                      padding: '0 8px',
+                      fontSize: '13px',
+                      fontWeight: 800,
+                      color: '#98a2b3',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      minHeight: '34px',
+                      lineHeight: '34px'
+                    }}
+                  >
+                    ...
+                  </span>
+                );
+              }
+
+              const pageNumber = pageNum as number;
+              const isActive = pageNumber === page;
+              return (
+                <Link
+                  key={`page-${pageNumber}`}
+                  href={{
+                    pathname: "/patients/mpi",
+                    query: { page: pageNumber, ...(query ? { query } : {}), ...(sex ? { sex } : {}), ...(confidenceFilter ? { confidence: confidenceFilter } : {}) },
+                  }}
+                  className={`mpi-filter-button ${isActive ? "active" : ""}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    textDecoration: 'none',
+                    background: isActive ? '#2f66d9' : '#ffffff',
+                    borderColor: isActive ? '#2457c5' : '#ccd6e2',
+                    color: isActive ? '#ffffff' : '#111827',
+                    minHeight: '34px',
+                    lineHeight: '34px'
+                  }}
+                >
+                  {pageNumber}
+                </Link>
+              );
+            })}
+
+            {/* Next Page Button */}
+            {page < totalPages ? (
+              <Link
+                href={{
+                  pathname: "/patients/mpi",
+                  query: { page: page + 1, ...(query ? { query } : {}), ...(sex ? { sex } : {}), ...(confidenceFilter ? { confidence: confidenceFilter } : {}) },
+                }}
+                className="mpi-filter-button"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  textDecoration: 'none',
+                  minHeight: '34px',
+                  lineHeight: '34px'
+                }}
+              >
+                Next
+              </Link>
+            ) : (
+              <span
+                className="mpi-filter-button disabled"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  color: '#98a2b3',
+                  background: '#f8fafc',
+                  borderColor: '#e2e8f0',
+                  cursor: 'not-allowed',
+                  minHeight: '34px',
+                  lineHeight: '34px'
+                }}
+              >
+                Next
+              </span>
+            )}
+          </div>
+        </div>
+
         <section className="mpi-bottom-grid">
           <div className="mpi-panel mpi-health" id="identity-validation">
             <h2>MPI System Health</h2>
@@ -147,33 +378,7 @@ export default async function MasterPatientIndexPage() {
             </div>
           </div>
 
-          <div className="mpi-panel" id="merge-status">
-            <h2>Identity Conflict Queue</h2>
-            <div className="mpi-conflict-list">
-              {mpi.conflicts.length ? (
-                mpi.conflicts.map((item) => (
-                  <div className="mpi-conflict-item" key={item.id}>
-                    <span className={`mpi-conflict-icon ${item.tone}`}>!</span>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <p>{item.time}</p>
-                    </div>
-                    <button aria-label={`More actions for ${item.title}`} type="button">
-                      :
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <div className="mpi-conflict-item">
-                  <span className="mpi-conflict-icon info">i</span>
-                  <div>
-                    <strong>No duplicate clusters found</strong>
-                    <p>The current database snapshot is clean.</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          <IdentityConflictQueue initialConflicts={mpi.conflicts} />
 
           <div className="mpi-panel" id="system-matches">
             <h2>Key Data Sources</h2>

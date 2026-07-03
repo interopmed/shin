@@ -535,7 +535,36 @@ class PatientConsentView(APIView):
 
 class MpiView(APIView):
   def get(self, request):
-    patients = list(Patient.objects.select_related("assigned_doctor").all().order_by("-updated_at", "-date", "-created_at", "-id")[:24])
+    page = int(request.query_params.get("page", 1))
+    page_size = int(request.query_params.get("pageSize", 10))
+    query = request.query_params.get("query", "").strip()
+    sex = request.query_params.get("sex", "").strip()
+    confidence = request.query_params.get("confidence", "").strip()
+
+    patients_query = Patient.objects.select_related("assigned_doctor").all().order_by("-updated_at", "-date", "-created_at", "-id")
+
+    if query:
+      patients_query = patients_query.filter(
+        Q(name__icontains=query) | Q(patient_id__icontains=query)
+      )
+
+    if sex:
+      patients_query = patients_query.filter(sex__iexact=sex)
+
+    # Resolve in memory list to allow dynamic python filtering on calculated confidence score
+    patients_all = list(patients_query)
+
+    if confidence:
+      if confidence == "high":
+        patients_all = [p for p in patients_all if _confidence(p) >= 80]
+      elif confidence == "low":
+        patients_all = [p for p in patients_all if _confidence(p) < 80]
+
+    total_records = len(patients_all)
+    start_index = (page - 1) * page_size
+    end_index = start_index + page_size
+    patients = patients_all[start_index:end_index]
+
     all_patients = list(Patient.objects.only("id", "name", "birthdate", "ebirthdate", "updated_at", "date", "created_at"))
     all_doctors = Doctor.objects.count()
     assigned_links = Patient.objects.exclude(assigned_doctor__isnull=True).count()
@@ -586,6 +615,20 @@ class MpiView(APIView):
           "title": f"Potential duplicate cluster for {_clean(lead.name, 'Unnamed patient')}",
           "time": _date_label(latest),
           "tone": "danger" if index < 2 else ("neutral" if index == 2 else "info"),
+          "patients": [
+            {
+              "id": str(p.pk),
+              "patientNumber": _clean(p.patient_id, f"Patient {p.pk}"),
+              "name": _clean(p.name, f"Patient {p.pk}"),
+              "sex": _clean(p.sex, "Not recorded"),
+              "birthDate": _clean(p.ebirthdate or p.birthdate, "Not recorded"),
+              "address": _clean(p.address, "Not recorded"),
+              "phone": _clean(p.phone, "Not recorded"),
+              "email": _clean(p.email, "Not recorded"),
+              "lastVisit": _date_label(p.updated_at or p.date or p.created_at or timezone.now()),
+            }
+            for p in group
+          ]
         }
       )
 
@@ -596,6 +639,8 @@ class MpiView(APIView):
       0,
       min(99, round((assigned_links / max(patient_count, 1)) * 100) + min(20, round((consent_count / max(patient_count, 1)) * 10)))
     )
+
+    total_pages = (total_records + page_size - 1) // page_size if total_records else 1
 
     return Response({
       "patients": mpi_patients,
@@ -611,7 +656,32 @@ class MpiView(APIView):
         "duplicateClusters": len(duplicate_clusters),
         "assignedDoctorLinks": assigned_links,
       },
+      "pagination": {
+        "total": total_records,
+        "page": page,
+        "pageSize": page_size,
+        "totalPages": total_pages,
+      }
     })
+
+  def post(self, request):
+    action = request.data.get("action")
+    if action == "merge":
+      keep_id = request.data.get("keepId")
+      delete_ids = request.data.get("deleteIds")
+
+      if not keep_id or not delete_ids:
+        return Response({"detail": "keepId and deleteIds are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+      keep_patient = Patient.objects.filter(pk=keep_id).first()
+      if not keep_patient:
+        return Response({"detail": "Keep patient not found."}, status=status.HTTP_404_NOT_FOUND)
+
+      # Perform database level merge / deletion
+      Patient.objects.filter(pk__in=delete_ids).delete()
+      return Response({"success": True})
+
+    return Response({"detail": "Action not supported."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 def _identity_user_record(user: IdentityUser) -> dict:
@@ -1393,4 +1463,128 @@ class ProviderDirectoryView(APIView):
             })
 
         return Response(providers)
+
+
+class TerminologyView(APIView):
+  permission_classes = []
+
+  def get(self, request):
+    mappings = [
+      { "id": "1", "sourceCode": "L-GLU", "sourceSystem": "Legacy LIS", "targetCode": "1558-6", "targetSystem": "LOINC", "displayName": "Glucose [Mass/volume] in Serum or Plasma", "status": "Active" },
+      { "id": "2", "sourceCode": "METF-500", "sourceSystem": "Hospital Formulary", "targetCode": "866514", "targetSystem": "RxNorm", "displayName": "Metformin hydrochloride 500 MG Oral Tablet", "status": "Active" },
+      { "id": "3", "sourceCode": "DIA-01", "sourceSystem": "EHR Clinical", "targetCode": "E11.9", "targetSystem": "ICD-10-CM", "displayName": "Type 2 diabetes mellitus without complications", "status": "Active" },
+      { "id": "4", "sourceCode": "CBC-WBC", "sourceSystem": "Legacy LIS", "targetCode": "6690-2", "targetSystem": "LOINC", "displayName": "Leukocytes [#/volume] in Blood by Automated count", "status": "Active" },
+      { "id": "5", "sourceCode": "AST-SGOT", "sourceSystem": "Legacy LIS", "targetCode": "1920-8", "targetSystem": "LOINC", "displayName": "Aspartate aminotransferase [Enzymatic activity/volume] in Serum or Plasma", "status": "Active" },
+      { "id": "6", "sourceCode": "INS-GLAR", "sourceSystem": "Hospital Formulary", "targetCode": "274783", "targetSystem": "RxNorm", "displayName": "insulin glargine 100 UNT/ML Injectable Solution", "status": "Active" },
+      { "id": "7", "sourceCode": "HTN-02", "sourceSystem": "EHR Clinical", "targetCode": "I10", "targetSystem": "ICD-10-CM", "displayName": "Essential (primary) hypertension", "status": "Active" }
+    ]
+
+    return Response({
+      "mappings": mappings,
+      "stats": {
+        "totalMappings": len(mappings),
+        "activeMappings": sum(1 for m in mappings if m["status"] == "Active"),
+        "systemsMapped": len(set(m["targetSystem"] for m in mappings))
+      }
+    })
+
+
+class IntegrationGatewayView(APIView):
+  permission_classes = []
+
+  def get(self, request):
+    feeds = [
+      { "name": "Epic Node 2", "protocol": "FHIR R4", "status": "Connected", "latency": "120ms", "processed": 1420, "tone": "success" },
+      { "name": "HL7 Lab Feed", "protocol": "HL7 v2.5", "status": "Connected", "latency": "45ms", "processed": 3104, "tone": "success" },
+      { "name": "EHR Notes Callback", "protocol": "Webhook", "status": "Active", "latency": "210ms", "processed": 482, "tone": "success" },
+      { "name": "External Pharmacy Hub", "protocol": "NCPDP 10.6", "status": "Offline", "latency": "0ms", "processed": 0, "tone": "danger" }
+    ]
+
+    messageQueue = [
+      { "id": "msg-001", "timestamp": "2026-06-30T19:43:20Z", "type": "ADT^A08 (Update Patient)", "source": "Epic Node 2", "status": "Success", "details": "Reconciled Bessie Cooper (EID-P10001) in MPI" },
+      { "id": "msg-002", "timestamp": "2026-06-30T19:40:15Z", "type": "ORU^R01 (Observation Result)", "source": "HL7 Lab Feed", "status": "Success", "details": "Delivered blood panel LOINC 1558-6 to EHR" },
+      { "id": "msg-003", "timestamp": "2026-06-30T19:35:10Z", "type": "MDM^T02 (Document Content)", "source": "EHR Notes", "status": "Success", "details": "Archived physician note for Patient P10001" },
+      { "id": "msg-004", "timestamp": "2026-06-30T19:22:44Z", "type": "ADT^A01 (Admit Patient)", "source": "Epic Node 2", "status": "Success", "details": "Created new MPI identity candidate" },
+      { "id": "msg-005", "timestamp": "2026-06-30T19:15:02Z", "type": "OMP^O09 (Medication Order)", "source": "EHR Notes", "status": "Failed", "details": "External Pharmacy Hub connection timeout (EPERM)" }
+    ]
+
+    return Response({
+      "feeds": feeds,
+      "messageQueue": messageQueue,
+      "stats": {
+        "successRate": round((sum(1 for m in messageQueue if m["status"] == "Success") / len(messageQueue)) * 100, 1) if messageQueue else 100.0,
+        "averageLatency": "125ms",
+        "queueSize": 1
+      }
+    })
+
+
+class ProviderDetailView(APIView):
+  permission_classes = []
+
+  def get(self, request, provider_id: str):
+    provider_type, actual_id = provider_id.split("-", 1) if "-" in provider_id else ("", provider_id)
+    
+    name = "Unknown Provider"
+    role = "Clinical Staff"
+    specialty = "General"
+    department = "General Medicine"
+    status = "Available"
+    tone = "success"
+    patients_list = []
+
+    if provider_type == "doc":
+      doctor = Doctor.objects.filter(pk=actual_id).first()
+      if doctor:
+        name = doctor.name
+        role = doctor.qualifications if doctor.qualifications else "Physician"
+        specialty = doctor.speciality if doctor.speciality else "Internal Medicine"
+        department = doctor.department if doctor.department else "Primary Care"
+        # Query patient assignments
+        assigned_patients = Patient.objects.filter(assigned_doctor=doctor).order_by("name")
+        for p in assigned_patients:
+          patients_list.append({
+            "id": str(p.pk),
+            "patientNumber": p.patient_id if p.patient_id else f"P{10000+p.pk}",
+            "name": p.name,
+            "birthDate": p.ebirthdate if p.ebirthdate else (p.birthdate if p.birthdate else "Not recorded"),
+            "phone": p.phone if p.phone else "Not recorded",
+            "email": p.email if p.email else "Not recorded",
+            "status": p.moa if p.moa else "Active",
+            "lastVisit": p.editted_time if p.editted_time else "Not recorded"
+          })
+    elif provider_type == "emp":
+      employee = Employee.objects.filter(pk=actual_id).first()
+      if employee:
+        name = employee.full_name
+        role = employee.job_title if employee.job_title else "Clinical Staff"
+        specialty = "Clinical Support" if employee.staff_type == "clinical" else "Care Coordination"
+        department = employee.department if employee.department else "Care Coordination"
+        status = "On shift" if employee.is_active else "Offline"
+        tone = "success" if employee.is_active else "danger"
+        # Coordinators mock-assign 5 patients
+        if "Coordinator" in role:
+          sample_patients = Patient.objects.all().order_by("id")[:5]
+          for p in sample_patients:
+            patients_list.append({
+              "id": str(p.pk),
+              "patientNumber": p.patient_id if p.patient_id else f"P{10000+p.pk}",
+              "name": p.name,
+              "birthDate": p.ebirthdate if p.ebirthdate else (p.birthdate if p.birthdate else "Not recorded"),
+              "phone": p.phone if p.phone else "Not recorded",
+              "email": p.email if p.email else "Not recorded",
+              "status": p.moa if p.moa else "Active",
+              "lastVisit": p.editted_time if p.editted_time else "Not recorded"
+            })
+
+    return Response({
+      "id": provider_id,
+      "name": name,
+      "role": role,
+      "specialty": specialty,
+      "department": department,
+      "status": status,
+      "tone": tone,
+      "patients": patients_list
+    })
 

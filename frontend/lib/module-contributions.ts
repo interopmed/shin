@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { canAccess, getActiveUserContext, getEnabledModules, getShinNodeState } from "./node-state";
+import { canAccess, getActiveUserContext, getEnabledModules, getShinNodeState, getShinDir } from "./node-state";
 import type { ActiveUserContext, InstalledModuleState } from "./node-state";
 
 export type ModuleNavItem = {
@@ -124,7 +124,7 @@ function readManifest(module: InstalledModuleState): ModuleManifest {
     return module;
   }
 
-  const manifestPath = path.join(process.cwd(), module.manifestPath);
+  const manifestPath = path.join(getShinDir(), module.manifestPath);
   if (!existsSync(manifestPath)) {
     return module;
   }

@@ -94,11 +94,24 @@ export type MpiPatientRecord = {
   tone: "verify" | "match" | "conflict";
 };
 
+export type ConflictPatientDetail = {
+  id: string;
+  patientNumber: string;
+  name: string;
+  sex: string;
+  birthDate: string;
+  address: string;
+  phone: string;
+  email: string;
+  lastVisit: string;
+};
+
 export type MpiConflictRecord = {
   id: string;
   title: string;
   time: string;
   tone: "danger" | "neutral" | "info";
+  patients?: ConflictPatientDetail[];
 };
 
 export type MpiSourceRecord = {
@@ -120,6 +133,12 @@ export type PatientMpiRecord = {
   conflicts: MpiConflictRecord[];
   dataSources: MpiSourceRecord[];
   summary: MpiSummaryRecord;
+  pagination?: {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
 };
 
 export type CreatePatientInput = {
@@ -400,8 +419,26 @@ export async function getPatientById(id: string): Promise<PatientDetailRecord | 
   }
 }
 
-export async function getPatientMpi(): Promise<PatientMpiRecord> {
-  return backendRequest<PatientMpiRecord>("/api/mpi/");
+export async function getPatientMpi(
+  page: number = 1,
+  pageSize: number = 10,
+  query: string = "",
+  sex: string = "",
+  confidence: string = ""
+): Promise<PatientMpiRecord> {
+  const params = new URLSearchParams();
+  params.set("page", page.toString());
+  params.set("pageSize", pageSize.toString());
+  if (query) {
+    params.set("query", query);
+  }
+  if (sex) {
+    params.set("sex", sex);
+  }
+  if (confidence) {
+    params.set("confidence", confidence);
+  }
+  return backendRequest<PatientMpiRecord>(`/api/mpi/?${params.toString()}`);
 }
 
 export async function savePatientConsentPreference(
@@ -415,4 +452,13 @@ export async function savePatientConsentPreference(
   });
 
   return normalizeConsentPreference(payload);
+}
+
+export async function mergePatientMpi(keepId: string, deleteIds: string[]): Promise<boolean> {
+  const result = await backendRequest<{ success: boolean }>("/api/mpi/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "merge", keepId, deleteIds }),
+  });
+  return result?.success || false;
 }

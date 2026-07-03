@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import registry from "../config/approved-modules.json";
 import { applyModuleMigrations, type ModuleDatabaseManifest } from "./module-db";
-import type { InstalledModuleState, ShinNodeState } from "./node-state";
+import { getWorkspaceRoot, getShinNodeStateDir, type InstalledModuleState, type ShinNodeState } from "./node-state";
 
 type ApprovedSource = {
   moduleId: string;
@@ -24,32 +24,11 @@ type ModuleManifest = {
   setupChecklist?: string[];
 } & ModuleDatabaseManifest;
 
-function getWorkspaceRoot(): string {
-  const cwd = process.cwd();
-  if (path.basename(cwd) === "frontend" && path.basename(path.resolve(cwd, "..")) === "shin") {
-    return path.resolve(cwd, "..", "..");
-  }
-  if (path.basename(cwd) === "shin") {
-    return path.resolve(cwd, "..");
-  }
-  let current = cwd;
-  while (true) {
-    if (existsSync(path.join(current, "shin")) && existsSync(path.join(current, "shin-ehr"))) {
-      return current;
-    }
-    const parent = path.resolve(current, "..");
-    if (parent === current) {
-      break;
-    }
-    current = parent;
-  }
-  return cwd;
-}
-
 const workspaceRoot = getWorkspaceRoot();
-const stateDir = path.join(workspaceRoot, "shin", ".shin-node");
+const stateDir = getShinNodeStateDir();
 const statePath = path.join(stateDir, "state.json");
 const modulesDir = path.join(stateDir, "modules");
+const shinDir = path.join(workspaceRoot, "shin");
 
 const actor = {
   actorId: "shin-node-ui",
@@ -65,8 +44,68 @@ function writeJson(filePath: string, value: unknown) {
   writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function safeRenameSync(oldPath: string, newPath: string) {
+  const maxRetries = 10;
+  const delayMs = 100;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      renameSync(oldPath, newPath);
+      return;
+    } catch (err) {
+      if (attempt === maxRetries) {
+        throw err;
+      }
+      const buf = new Int32Array(new SharedArrayBuffer(4));
+      Atomics.wait(buf, 0, 0, delayMs);
+    }
+  }
+}
+
+function safeRmSync(targetPath: string) {
+  if (!existsSync(targetPath)) {
+    return;
+  }
+
+  const maxRetries = 10;
+  const delayMs = 100;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const makeWriteable = (p: string) => {
+        try {
+          const stats = lstatSync(p);
+          if (stats.isDirectory()) {
+            try {
+              chmodSync(p, 0o777);
+            } catch {}
+            const children = readdirSync(p);
+            for (const child of children) {
+              makeWriteable(path.join(p, child));
+            }
+          } else {
+            try {
+              chmodSync(p, 0o666);
+            } catch {}
+          }
+        } catch {}
+      };
+      makeWriteable(targetPath);
+
+      rmSync(targetPath, { recursive: true, force: true });
+      return;
+    } catch (err) {
+      if (attempt === maxRetries) {
+        throw err;
+      }
+      const buf = new Int32Array(new SharedArrayBuffer(4));
+      Atomics.wait(buf, 0, 0, delayMs);
+    }
+  }
+}
+
 function relativeToApp(filePath: string) {
-  return path.relative(process.cwd(), filePath).split(path.sep).join("/");
+  return path.relative(shinDir, filePath).split(path.sep).join("/");
 }
 
 function assertPathInside(parentDir: string, childPath: string) {
@@ -120,7 +159,7 @@ function addAudit(state: ReturnType<typeof defaultState>, action: string, detail
 
 function moduleInstallPaths(moduleId: string) {
   const moduleDir = path.join(modulesDir, moduleId);
-  const repoDir = path.join(moduleDir, "repo");
+  const repoDir = path.join(moduleDir, `repo_${Date.now()}`);
   const manifestPath = path.join(moduleDir, "interopmed.module.json");
 
   assertPathInside(modulesDir, moduleDir);
@@ -179,18 +218,25 @@ export async function installModule(moduleId: string, requestedRef?: string) {
   const ref = resolveRef(source, requestedRef);
   const { moduleDir, repoDir, manifestPath } = moduleInstallPaths(moduleId);
   mkdirSync(moduleDir, { recursive: true });
-  if (existsSync(repoDir)) {
-    const oldDir = `${repoDir}_old_${Date.now()}`;
-    try {
-      renameSync(repoDir, oldDir);
+  const existing = state.installedModules.find((installed) => installed.moduleId === moduleId);
+  if (existing && existing.installPath) {
+    const oldRepoDir = path.join(shinDir, existing.installPath);
+    if (existsSync(oldRepoDir)) {
+      const oldDir = `${oldRepoDir}_old_${Date.now()}`;
       try {
-        rmSync(oldDir, { recursive: true, force: true });
-      } catch (err) {
-        // Ignore background cleanup failures if files are locked by the dev server watchpack
+        safeRenameSync(oldRepoDir, oldDir);
+        try {
+          safeRmSync(oldDir);
+        } catch (err) {
+          // Ignore background cleanup failures
+        }
+      } catch (e) {
+        try {
+          safeRmSync(oldRepoDir);
+        } catch (err) {
+          // Ignore
+        }
       }
-    } catch (e) {
-      // Fallback if renaming is blocked
-      rmSync(repoDir, { recursive: true, force: true });
     }
   }
 
@@ -199,13 +245,20 @@ export async function installModule(moduleId: string, requestedRef?: string) {
     cloneUrl = path.resolve(workspaceRoot, cloneUrl.replace(/^\.\.\//, ""));
   }
 
-  execFileSync("git", ["clone", "--depth", "1", "--branch", ref, cloneUrl, repoDir], {
-    cwd: process.cwd(),
-    stdio: "ignore",
-  });
+  try {
+    execFileSync("git", ["clone", "--depth", "1", "--branch", ref, cloneUrl, repoDir], {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error: any) {
+    const stderr = error.stderr?.toString() || error.message;
+    console.error(`Git clone failed for ${moduleId}: ${stderr}`);
+    throw new Error(`Failed to clone repository for module ${moduleId}: ${stderr}`);
+  }
 
   const installedManifest = readJson<ModuleManifest>(path.join(repoDir, "interopmed.module.json"));
-  if (installedManifest.moduleId !== manifest.moduleId || installedManifest.repositoryUrl !== manifest.repositoryUrl) {
+  const getRepoName = (url: string) => url.split("/").pop()?.replace(/\.git$/, "").toLowerCase();
+  if (installedManifest.moduleId !== manifest.moduleId || getRepoName(installedManifest.repositoryUrl) !== getRepoName(manifest.repositoryUrl)) {
     throw new Error(`Installed manifest does not match approved module ${moduleId}`);
   }
 
@@ -215,8 +268,12 @@ export async function installModule(moduleId: string, requestedRef?: string) {
     cwd: process.cwd(),
     encoding: "utf8",
   }).trim();
+
+  // Remove the .git directory to prevent file locking and nested git issues on Windows
+  const gitDir = path.join(repoDir, ".git");
+  safeRmSync(gitDir);
+
   const now = new Date().toISOString();
-  const existing = state.installedModules.find((installed) => installed.moduleId === moduleId);
   const moduleState: InstalledModuleState = {
     id: existing?.id ?? `module-${moduleId}`,
     moduleId,
@@ -254,8 +311,8 @@ export async function setModuleStatus(moduleId: string, status: "enabled" | "dis
   }
 
   if (status === "enabled" && moduleState.installPath && moduleState.manifestPath) {
-    const repoDir = path.join(process.cwd(), moduleState.installPath);
-    const manifest = readJson<ModuleManifest>(path.join(process.cwd(), moduleState.manifestPath));
+    const repoDir = path.join(shinDir, moduleState.installPath);
+    const manifest = readJson<ModuleManifest>(path.join(shinDir, moduleState.manifestPath));
     await applyModuleMigrations({ moduleId, moduleRoot: repoDir, manifest });
   }
 
@@ -280,7 +337,11 @@ export function uninstallModule(moduleId: string) {
 
   const { moduleDir } = moduleInstallPaths(moduleId);
   if (existsSync(moduleDir)) {
-    rmSync(moduleDir, { recursive: true, force: true });
+    try {
+      safeRmSync(moduleDir);
+    } catch (err) {
+      // Ignore background cleanup failures on Windows if files are locked or permissions are restricted
+    }
   }
 
   state.installedModules = state.installedModules.filter((installed) => installed.moduleId !== moduleId);

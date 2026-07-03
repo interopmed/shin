@@ -100,12 +100,50 @@ export const roleProfiles: Record<ActiveUserContext["role"], Omit<ActiveUserCont
   },
 };
 
+export function getWorkspaceRoot(): string {
+  const cwd = process.cwd();
+  if (path.basename(cwd) === "frontend" && path.basename(path.resolve(cwd, "..")) === "shin") {
+    return path.resolve(cwd, "..", "..");
+  }
+  if (path.basename(cwd) === "shin") {
+    return path.resolve(cwd, "..");
+  }
+  let current = cwd;
+  while (true) {
+    if (existsSync(path.join(current, "shin")) && existsSync(path.join(current, "shin-ehr"))) {
+      return current;
+    }
+    const parent = path.resolve(current, "..");
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return cwd;
+}
+
+export function getShinNodeStateDir(): string {
+  if (process.env.VITEST) {
+    return path.join(process.cwd(), ".shin-node");
+  }
+  const workspaceRoot = getWorkspaceRoot();
+  return path.join(workspaceRoot, "shin", ".shin-node");
+}
+
+export function getShinDir(): string {
+  if (process.env.VITEST) {
+    return process.cwd();
+  }
+  const workspaceRoot = getWorkspaceRoot();
+  return path.join(workspaceRoot, "shin");
+}
+
 export function isActiveUserRole(role: string): role is ActiveUserContext["role"] {
   return activeUserRoles.includes(role as ActiveUserContext["role"]);
 }
 
 function activeRoleFromLocalState(): ActiveUserContext["role"] | null {
-  const rolePath = path.join(process.cwd(), ".shin-node", "active-role.json");
+  const rolePath = path.join(getShinNodeStateDir(), "active-role.json");
 
   if (!existsSync(rolePath)) {
     return null;
@@ -142,7 +180,7 @@ const fallbackState: ShinNodeState = {
 };
 
 export function getShinNodeState(): ShinNodeState {
-  const statePath = path.join(process.cwd(), ".shin-node", "state.json");
+  const statePath = path.join(getShinNodeStateDir(), "state.json");
 
   if (!existsSync(statePath)) {
     return fallbackState;
@@ -158,6 +196,7 @@ export function getShinNodeState(): ShinNodeState {
 export function getEnabledModules(): InstalledModuleState[] {
   return getShinNodeState().installedModules.filter((module) => module.status === "enabled");
 }
+
 
 export function getActiveUserContext(): ActiveUserContext {
   const role = activeRoleFromLocalState() ?? activeRoleFromEnvironment();

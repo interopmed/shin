@@ -11,8 +11,8 @@
     {
       "moduleId": "ehr",
       "repositoryUrl": "../shin-ehr",
-      "allowedRefs": ["v0.1.0", "master"],
-      "defaultRef": "master",
+      "allowedRefs": ["v0.1.0", "master", "main"],
+      "defaultRef": "main",
       "status": "approved"
     },
     {

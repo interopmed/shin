@@ -65,6 +65,9 @@ export function getNavigationGroups(): NavigationGroup[] {
       label: "Foundation",
       items: [
         { label: "Identity & Access", href: "/foundation/identitywork", detail: "RBAC and users", icon: "shield" },
+        { label: "Master Provider Index", href: "/foundation/providers", detail: "Provider registry", icon: "users" },
+        { label: "Terminology Mapping", href: "/foundation/terminology", detail: "Code translations", icon: "file" },
+        { label: "Integration Gateway", href: "/foundation/integration", detail: "HL7/FHIR route monitor", icon: "activity" },
         ...(canAccess(user, ["audit.read"]) ? [{ label: "Audit Log", href: "/foundation/audit", detail: "Governance trail", icon: "activity" }] : []),
         ...(canAccess(user, ["event.read"]) ? [{ label: "Events", href: "/foundation/events", detail: "Event stream", icon: "bell" }] : []),
         ...moduleItemsForSection("Foundation"),

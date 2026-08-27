@@ -1,224 +1,226 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
-import api from '@/lib/api';
-import { useAuth } from '@/hooks/useAuth';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import type { NavigationGroup } from "../lib/navigation";
+import type { ShinNodeState } from "../lib/node-state";
 
-type MenuItem = {
-  id: number;
-  name: string;
-  icon?: string;
-  sort_order?: number;
+type SidebarProps = {
+  nodeState: ShinNodeState;
+  navigationGroups: NavigationGroup[];
 };
 
-type MenuSubItem = {
-  id: number;
-  name: string;
-  menu: string;
-  value?: string;
-  link?: string;
-  color?: string;
-  sort_order?: number;
-};
+function isActive(pathname: string, href: string) {
+  const cleanHref = href.split("#")[0];
+  if (cleanHref === "/") {
+    return pathname === "/";
+  }
 
-const Sidebar = () => {
-  const pathname = usePathname();
-  const { user } = useAuth();
-  const [openMenus, setOpenMenus] = useState<{ [key: string]: boolean }>({});
-  const [menus, setMenus] = useState<MenuItem[]>([]);
-  const [menuSubs, setMenuSubs] = useState<MenuSubItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  if (cleanHref === "/modules/ehr/patients") {
+    return pathname === "/modules/ehr/patients" || (pathname.startsWith("/modules/ehr/patients/") && !pathname.startsWith("/patients/mpi"));
+  }
 
-  const role = user?.role;
+  if (cleanHref.startsWith("/modules/") && cleanHref.split("/").length === 3) {
+    return pathname === cleanHref;
+  }
 
-  useEffect(() => {
-    let isMounted = true;
+  return pathname === cleanHref || pathname.startsWith(`${cleanHref}/`);
+}
 
-    const fetchMenus = async () => {
-      if (!user?.token) {
-        if (isMounted) {
-          setMenus([]);
-          setMenuSubs([]);
-          setLoading(false);
-        }
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const params = role ? { role } : undefined;
-        const [menuData, menuSubData] = await Promise.all([
-          api.getAllMenus(user.token, params),
-          api.getAllMenuSubs(user.token, params),
-        ]);
-
-        if (!isMounted) return;
-        setMenus(Array.isArray(menuData) ? menuData : []);
-        setMenuSubs(Array.isArray(menuSubData) ? menuSubData : []);
-      } catch (error) {
-        console.error('Failed to load menus:', error);
-        if (isMounted) {
-          setMenus([]);
-          setMenuSubs([]);
-        }
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    fetchMenus();
-    return () => {
-      isMounted = false;
-    };
-  }, [role, user?.token]);
-
-  const toggleMenu = (menuId: string | number) => {
-    setOpenMenus((prev) => ({
-      ...prev,
-      [menuId]: !prev[menuId],
-    }));
+function SidebarIcon({ name = "dashboard" }: { name?: string }) {
+  const commonProps = {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: 24,
+    height: 24,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    className: "sidebar-icon",
+    "aria-hidden": true,
   };
 
-  const formatLabel = (value: string) =>
-    value
-      .split('_')
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ');
+  if (name === "users") {
+    return (
+      <svg {...commonProps}>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    );
+  }
 
-  const normalizeLink = (link?: string) => {
-    if (!link) return '#';
-    if (link.startsWith('http://') || link.startsWith('https://')) return link;
-    const normalized = link.startsWith('/') ? link : `/${link}`;
-    if (normalized.startsWith('/finance/addPayment')) {
-      return normalized.replace('/finance/addPayment', '/modules/billing/finance/payment/add');
-    }
-    if (normalized.startsWith('\/modules/lab/requestedLab')) {
-      return normalized.replace('\/modules/lab/requestedLab', '\/modules/lab/requested-investigations');
-    }
-    return normalized;
-  };
+  if (name === "shield") {
+    return (
+      <svg {...commonProps}>
+        <path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    );
+  }
 
-  const getLinkPath = (link?: string) => normalizeLink(link).split('?')[0];
+  if (name === "settings") {
+    return (
+      <svg {...commonProps}>
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.72l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    );
+  }
 
-  const menuSubsByMenu = useMemo(() => {
-    const grouped: Record<string, MenuSubItem[]> = {};
-    menuSubs.forEach((sub) => {
-      if (!grouped[sub.menu]) {
-        grouped[sub.menu] = [];
-      }
-      grouped[sub.menu].push(sub);
-    });
+  if (name === "activity") {
+    return (
+      <svg {...commonProps}>
+        <path d="M3 12h4l3 8 4-16 3 8h4" />
+      </svg>
+    );
+  }
 
-    Object.values(grouped).forEach((items) => {
-      items.sort((a, b) => (a.sort_order ?? a.id) - (b.sort_order ?? b.id));
-    });
+  if (name === "bell") {
+    return (
+      <svg {...commonProps}>
+        <path d="M10.3 21a2 2 0 0 0 3.4 0" />
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+      </svg>
+    );
+  }
 
-    return grouped;
-  }, [menuSubs]);
+  if (name === "file") {
+    return (
+      <svg {...commonProps}>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+        <path d="M8 13h8" />
+        <path d="M8 17h5" />
+      </svg>
+    );
+  }
 
-  const sortedMenus = useMemo(() => {
-    return [...menus].sort((a, b) => (a.sort_order ?? a.id) - (b.sort_order ?? b.id));
-  }, [menus]);
+  if (name === "building") {
+    return (
+      <svg {...commonProps}>
+        <path d="M3 21h18" />
+        <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16" />
+        <path d="M9 7h1" />
+        <path d="M14 7h1" />
+        <path d="M9 12h1" />
+        <path d="M14 12h1" />
+      </svg>
+    );
+  }
+
+  if (name === "module") {
+    return (
+      <svg {...commonProps}>
+        <rect width="7" height="7" x="3" y="3" rx="1" />
+        <rect width="7" height="7" x="14" y="3" rx="1" />
+        <rect width="7" height="7" x="14" y="14" rx="1" />
+        <rect width="7" height="7" x="3" y="14" rx="1" />
+      </svg>
+    );
+  }
 
   return (
-    <aside className="main-sidebar sidebar-dark-primary elevation-4">
-      {/* Brand Logo */}
-      <Link href="/dashboard" className="brand-link">
-        <img
-          src="/images/lcd_logo.png"
-          alt="LCD"
-          className="brand-image img-circle elevation-3"
-          style={{ opacity: 0.8 }}
-        />
-        <span className="brand-text font-weight-light">LCD</span>
-      </Link>
+    <svg {...commonProps}>
+      <rect width="7" height="9" x="3" y="3" rx="1" />
+      <rect width="7" height="5" x="14" y="3" rx="1" />
+      <rect width="7" height="9" x="14" y="12" rx="1" />
+      <rect width="7" height="5" x="3" y="16" rx="1" />
+    </svg>
+  );
+}
 
-      {/* Sidebar */}
-      <div className="sidebar">
-        {/* Sidebar Menu */}
-        <nav className="mt-2">
-          <ul className="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-            <li className="nav-header">SYSTEM</li>
+export default function Sidebar({ nodeState, navigationGroups }: SidebarProps) {
+  const pathname = usePathname();
+  const currentPathname = pathname ?? "/";
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
-            <li className="nav-item">
-              <Link href="/settings/menus" className={`nav-link ${pathname === '/settings/menus' ? 'active' : ''}`}>
-                <i className="nav-icon fas fa-bars"></i>
-                <p>Menu</p>
-              </Link>
-            </li>
+  return (
+    <aside className={`sidebar ${isCollapsed ? "is-collapsed" : ""}`}>
+      <div className="sidebar-inner">
+        <div className={`sidebar-brand-row ${isCollapsed ? "centered" : ""}`}>
+          <div className="brand-mark">SN</div>
+          <div className={isCollapsed ? "sr-only" : "brand-copy"}>
+            <Link href="/" className="brand">
+              SHIN Node
+            </Link>
+            <p className="brand-subtitle">Institute dashboard</p>
+          </div>
+        </div>
 
-            {loading && (
-              <li className="nav-item">
-                <span className="nav-link text-muted">
-                  <i className="nav-icon fas fa-circle"></i>
-                  <p>Loading menu...</p>
-                </span>
-              </li>
-            )}
+        <nav className={`nav ${isCollapsed ? "collapsed" : ""}`} aria-label="SHIN navigation">
+          <div className={`collapse-row ${isCollapsed ? "centered" : ""}`}>
+            <button
+              type="button"
+              onClick={() => setIsCollapsed((value) => !value)}
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className="sidebar-collapse-button"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={isCollapsed ? "rotated sidebar-icon" : "sidebar-icon"}
+                aria-hidden="true"
+              >
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+            </button>
+          </div>
 
-            {!loading && sortedMenus.map((item) => {
-              const submenuItems = menuSubsByMenu[item.name] || [];
-              const hasSubmenu = submenuItems.length > 0;
-              const isActive = hasSubmenu
-                ? submenuItems.some((sub) => getLinkPath(sub.link) === pathname)
-                : false;
-              const isOpen = openMenus[item.id] ?? isActive;
+          {navigationGroups.map((group) => (
+            <div className="nav-section" key={group.label}>
+              <p className={isCollapsed ? "sr-only" : "nav-heading"}>{group.label}</p>
+              <div className="nav-items">
+                {group.items.map((item) => {
+                  const active = isActive(currentPathname, item.href);
 
-              return (
-                <li key={item.id} className={`nav-item ${isOpen ? 'menu-is-opening menu-open' : ''}`}>
-                  {hasSubmenu ? (
-                    <>
-                      <a
-                        href="javascript:;"
-                        className={`nav-link ${isActive ? 'active' : ''}`}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          toggleMenu(item.id);
-                        }}
-                      >
-                        <i className={`nav-icon fas fa-${item.icon || 'circle'}`}></i>
-                        <p>
-                          {formatLabel(item.name)}
-                          <i className="right fas fa-angle-left"></i>
-                        </p>
-                      </a>
-                      <ul className="nav nav-treeview">
-                        {submenuItems.map((sub) => {
-                          const link = normalizeLink(sub.link);
-                          const isSubActive = getLinkPath(sub.link) === pathname;
-                          const color = (sub.color || 'primary').toLowerCase();
-
-                          return (
-                            <li key={sub.id} className="nav-item">
-                              <Link
-                                href={link}
-                                className={`nav-link ${isSubActive ? 'active' : ''}`}
-                              >
-                                <i className={`far fa-circle nav-icon text-${color}`}></i>
-                                <p>{formatLabel(sub.name)}</p>
-                              </Link>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </>
-                  ) : (
-                    <span className="nav-link">
-                      <i className={`nav-icon fas fa-${item.icon || 'circle'}`}></i>
-                      <p>{formatLabel(item.name)}</p>
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                  return (
+                    <Link
+                      href={item.href}
+                      key={item.href}
+                      title={isCollapsed ? item.label : undefined}
+                      className={`nav-link ${active ? "active" : ""}`}
+                    >
+                      <span className="nav-link-main">
+                        <span className="nav-icon-box">
+                          <SidebarIcon name={item.icon} />
+                        </span>
+                        <span className={isCollapsed ? "sr-only" : "nav-text"}>
+                          <span className="nav-label">{item.label}</span>
+                          {item.detail ? <span className="nav-detail">{item.detail}</span> : null}
+                        </span>
+                      </span>
+                      {item.badge && !isCollapsed ? <span className="nav-badge">{item.badge}</span> : null}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
+
+        <div className="sidebar-footer">
+          <div className={isCollapsed ? "node-chip centered" : "node-chip"}>
+            <div className="node-avatar">NA</div>
+            <div className={isCollapsed ? "sr-only" : "node-copy"}>
+              <p>{nodeState.organization.name}</p>
+              <span>Local administrator</span>
+            </div>
+          </div>
+        </div>
       </div>
     </aside>
   );
-};
-
-export default Sidebar;
-
+}

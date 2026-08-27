@@ -3,6 +3,16 @@ import readline from "node:readline";
 
 const isWindows = process.platform === "win32";
 
+if (isWindows) {
+  const options = { stdio: "ignore", detached: true, shell: true, cwd: process.cwd() };
+  const front = spawn('start "SHIN Frontend" cmd.exe /K "npm run frontend:dev"', options);
+  const back = spawn('start "SHIN Backend" cmd.exe /K "npm run backend:dev"', options);
+  front.unref();
+  back.unref();
+  console.log("Dev servers launched in separate CMD windows.");
+  process.exit(0);
+}
+
 function startProcess(label, command, args, options = {}) {
   const child = spawn(command, args, {
     cwd: process.cwd(),
@@ -36,15 +46,10 @@ function startProcess(label, command, args, options = {}) {
 }
 
 function startNpmScript(label, scriptName) {
-  if (isWindows) {
-    return startProcess(label, "cmd.exe", ["/d", "/s", "/c", `npm run ${scriptName}`]);
-  }
-
   return startProcess(label, "npm", ["run", scriptName]);
 }
 
 const frontend = startNpmScript("frontend", "frontend:dev");
-
 const backend = startNpmScript("backend", "backend:dev");
 
 const children = [frontend, backend];

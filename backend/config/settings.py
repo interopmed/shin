@@ -1,11 +1,92 @@
 from __future__ import annotations
 
+import json
 import os
+import sys
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BASE_DIR.parent
+
+# ---------------------------------------------------------------------------
+# Module backend discovery
+# ---------------------------------------------------------------------------
+# Each installed module (e.g. shin-ehr) may declare Django apps in its
+# interopmed.module.json via a "djangoApps" array.  We read the manifest,
+# add the module's backend/ directory to sys.path, and append its apps to
+# INSTALLED_APPS — all from a single Django server on port 8000.
+# ---------------------------------------------------------------------------
+_STATE_FILE = PROJECT_ROOT / ".shin-node" / "state.json"
+
+
+def _discover_module_django_apps() -> tuple[list[str], list[dict]]:
+  """
+  Scan installed+enabled modules for djangoApps declarations.
+
+  Returns:
+    app_labels:  list of Django app labels to add to INSTALLED_APPS
+    url_entries: list of {"prefix": ..., "module": ...} for URL wiring
+  """
+  if not _STATE_FILE.exists():
+    return [], []
+
+  try:
+    state = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+  except (json.JSONDecodeError, OSError):
+    return [], []
+
+  app_labels: list[str] = []
+  url_entries: list[dict] = []
+  seen_paths: set[str] = set()
+
+  modules = state.get("installedModules", [])
+  # Prioritize other modules over lab to prevent lab's legacy/empty app dirs from shadowing new ones
+  modules = sorted(modules, key=lambda m: 1 if m.get("moduleId") == "lab" else 0)
+
+  for mod in modules:
+    if mod.get("status") != "enabled":
+      continue
+    repo_url = mod.get("repositoryUrl", "")
+    if not repo_url:
+      continue
+
+    module_root = (PROJECT_ROOT / repo_url).resolve()
+    backend_dir = module_root / "backend"
+
+    # Read the module manifest for djangoApps declarations
+    manifest_path = module_root / "interopmed.module.json"
+    if not manifest_path.exists():
+      continue
+    try:
+      manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+      continue
+
+    django_apps = manifest.get("djangoApps", [])
+    if not django_apps or not backend_dir.is_dir():
+      continue
+
+    # Add this module's backend/ to sys.path (once)
+    backend_str = str(backend_dir)
+    if backend_str not in seen_paths:
+      seen_paths.add(backend_str)
+      if backend_str not in sys.path:
+        sys.path.append(backend_str)
+
+    for entry in django_apps:
+      label = entry.get("appLabel", "")
+      if label:
+        app_labels.append(label)
+      url_prefix = entry.get("urlPrefix")
+      url_module = entry.get("urlModule")
+      if url_prefix and url_module:
+        url_entries.append({"prefix": url_prefix, "module": url_module})
+
+  return app_labels, url_entries
+
+
+_MODULE_APP_LABELS, MODULE_URL_ENTRIES = _discover_module_django_apps()
 
 
 def load_env_file(path: Path) -> None:
@@ -57,6 +138,7 @@ INSTALLED_APPS = [
   "rest_framework",
   "corsheaders",
   "apps.core",
+  *_MODULE_APP_LABELS,
 ]
 
 MIDDLEWARE = [

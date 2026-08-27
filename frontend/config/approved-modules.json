@@ -3,28 +3,28 @@
   "approvedSources": [
     {
       "moduleId": "scheduling",
-      "repositoryUrl": "../shin-scheduling",
+      "repositoryUrl": "https://github.com/interopmed/shin-scheduling",
       "allowedRefs": ["v0.1.0", "master"],
       "defaultRef": "master",
       "status": "approved"
     },
     {
       "moduleId": "ehr",
-      "repositoryUrl": "../shin-ehr",
+      "repositoryUrl": "https://github.com/interopmed/shin-ehr",
       "allowedRefs": ["v0.1.0", "master", "main"],
       "defaultRef": "main",
       "status": "approved"
     },
     {
       "moduleId": "lab",
-      "repositoryUrl": "../shin-lab",
-      "allowedRefs": ["v0.1.0", "master"],
-      "defaultRef": "master",
+      "repositoryUrl": "https://github.com/interopmed/shin-lab",
+      "allowedRefs": ["v0.1.0", "master", "main"],
+      "defaultRef": "main",
       "status": "approved"
     },
     {
       "moduleId": "billing",
-      "repositoryUrl": "../shin-billing",
+      "repositoryUrl": "https://github.com/interopmed/shin-billing",
       "allowedRefs": ["v0.1.0", "master"],
       "defaultRef": "master",
       "status": "approved"
@@ -37,7 +37,7 @@
       "version": "0.1.0",
       "category": "clinical-operations",
       "description": "Appointment booking, provider availability, queues, reminders, and encounter linking.",
-      "repositoryUrl": "../shin-scheduling",
+      "repositoryUrl": "https://github.com/interopmed/shin-scheduling",
       "minPlatformVersion": "0.1.0",
       "dependencies": [],
       "permissions": ["scheduling.read", "scheduling.write", "scheduling.admin"],
@@ -77,7 +77,7 @@
       "version": "0.1.0",
       "category": "clinical",
       "description": "Patient chart foundation, encounters, notes, problems, medications, and clinical documentation.",
-      "repositoryUrl": "../shin-ehr",
+      "repositoryUrl": "https://github.com/interopmed/shin-ehr",
       "minPlatformVersion": "0.1.0",
       "dependencies": [],
       "permissions": ["ehr.read", "ehr.write", "ehr.admin"],
@@ -122,7 +122,7 @@
       "version": "0.1.0",
       "category": "lab",
       "description": "Lab orders, specimens, analyzer feeds, abnormal flags, results, and clinician review.",
-      "repositoryUrl": "../shin-lab",
+      "repositoryUrl": "https://github.com/interopmed/shin-lab",
       "minPlatformVersion": "0.1.0",
       "dependencies": [],
       "permissions": ["lab.read", "lab.write", "lab.admin"],
@@ -130,10 +130,6 @@
       "events": {
         "publishes": ["lab.order.created", "lab.result.finalized"],
         "subscribes": ["patient.record.created", "encounter.created"]
-      },
-      "database": {
-        "schema": "public",
-        "migrations": ["db/migrations/001_lab_core.sql", "db/migrations/002_patient_table_reference.sql"]
       },
       "dashboard": {
         "cards": [
@@ -166,7 +162,7 @@
       "version": "0.1.0",
       "category": "billing",
       "description": "Charge capture, invoice status, payment workflow, and billing reports.",
-      "repositoryUrl": "../shin-billing",
+      "repositoryUrl": "https://github.com/interopmed/shin-billing",
       "minPlatformVersion": "0.1.0",
       "dependencies": [],
       "permissions": ["billing.read", "billing.write", "billing.admin"],

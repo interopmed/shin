@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync, symlinkSync } from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { appDir, assertPathInside, checksum, loadEnvFile, readJson } from "./utils.mjs";
@@ -465,14 +465,40 @@ async function setModuleStatus(moduleId, status) {
   moduleState.updatedAt = new Date().toISOString();
   if (status === "enabled") {
     moduleState.enabledAt = moduleState.updatedAt;
+    syncFrontendJunction(moduleId, moduleState.installPath, true);
   }
   if (status === "disabled") {
     moduleState.disabledAt = moduleState.updatedAt;
+    syncFrontendJunction(moduleId, moduleState.installPath, false);
   }
 
   addAudit(state, `module-${status}`, { moduleId });
   saveState(state);
   console.log(`${moduleId} is now ${status}`);
+}
+
+function syncFrontendJunction(moduleId, installPath, enabled) {
+  const shinModulesAppDir = path.join(appDir, "frontend", "app", "modules");
+  const junctionTarget = path.join(shinModulesAppDir, moduleId);
+  
+  if (existsSync(junctionTarget)) {
+    try {
+      rmSync(junctionTarget, { recursive: true, force: true });
+    } catch (err) {}
+  }
+  
+  if (enabled && installPath) {
+    const sourceAppDir = path.join(appDir, installPath, "frontend", "src", "app");
+    if (existsSync(sourceAppDir)) {
+      try {
+        mkdirSync(shinModulesAppDir, { recursive: true });
+        symlinkSync(sourceAppDir, junctionTarget, "junction");
+        console.log(`Linked frontend routes for ${moduleId}`);
+      } catch (err) {
+        console.error(`Failed to link frontend for ${moduleId}:`, err.message);
+      }
+    }
+  }
 }
 
 function uninstallModule(moduleId) {
@@ -491,6 +517,7 @@ function uninstallModule(moduleId) {
       // Ignore background cleanup failures on Windows if files are locked or permissions are restricted
     }
   }
+  syncFrontendJunction(moduleId, moduleState.installPath, false);
 
   state.installedModules = state.installedModules.filter((installed) => installed.moduleId !== moduleId);
   addAudit(state, "module-uninstall", { moduleId, installPath: moduleState.installPath });

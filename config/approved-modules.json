@@ -4,7 +4,7 @@
     {
       "moduleId": "scheduling",
       "repositoryUrl": "../shin-scheduling",
-      "allowedRefs": ["v0.1.0", "master"],
+      "allowedRefs": ["v0.1.0", "master", "main"],
       "defaultRef": "master",
       "status": "approved"
     },
@@ -18,14 +18,14 @@
     {
       "moduleId": "lab",
       "repositoryUrl": "../shin-lab",
-      "allowedRefs": ["v0.1.0", "master"],
+      "allowedRefs": ["v0.1.0", "master", "main"],
       "defaultRef": "master",
       "status": "approved"
     },
     {
       "moduleId": "billing",
       "repositoryUrl": "../shin-billing",
-      "allowedRefs": ["v0.1.0", "master"],
+      "allowedRefs": ["v0.1.0", "master", "main"],
       "defaultRef": "master",
       "status": "approved"
     }

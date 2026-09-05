@@ -41,64 +41,8 @@ export type ShinNodeState = {
   installedModules: InstalledModuleState[];
 };
 
-export type ActiveUserContext = {
-  userId: string;
-  displayName: string;
-  role: "administrator" | "clinician" | "lab-manager" | "front-desk" | "auditor";
-  permissions: string[];
-};
-
-export const activeUserRoles = ["administrator", "clinician", "lab-manager", "front-desk", "auditor"] as const;
-
-export const roleLabels: Record<ActiveUserContext["role"], string> = {
-  administrator: "Administration",
-  clinician: "Clinical Team",
-  "lab-manager": "Lab Operations",
-  "front-desk": "Front Desk",
-  auditor: "Audit & Compliance",
-};
-
-export const roleProfiles: Record<ActiveUserContext["role"], Omit<ActiveUserContext, "role">> = {
-  administrator: {
-    userId: "user-local-admin",
-    displayName: "Node Administrator",
-    permissions: [
-      "patient.read",
-      "provider.read",
-      "facility.read",
-      "audit.read",
-      "event.read",
-      "module.manage",
-    ],
-  },
-  clinician: {
-    userId: "user-local-clinician",
-    displayName: "Clinical Team",
-    permissions: [
-      "patient.read",
-      "provider.read",
-      "ehr.read",
-      "lab.read",
-      "scheduling.read",
-      "event.read",
-    ],
-  },
-  "lab-manager": {
-    userId: "user-local-lab-manager",
-    displayName: "Lab Manager",
-    permissions: ["patient.read", "provider.read", "lab.read", "lab.review", "event.read"],
-  },
-  "front-desk": {
-    userId: "user-local-front-desk",
-    displayName: "Front Desk",
-    permissions: ["patient.read", "provider.read", "scheduling.read"],
-  },
-  auditor: {
-    userId: "user-local-auditor",
-    displayName: "Compliance Auditor",
-    permissions: ["audit.read", "event.read"],
-  },
-};
+export * from "./permissions";
+import { ActiveUserContext, EHRRole, isActiveUserRole, roleProfiles } from "./permissions";
 
 export function getWorkspaceRoot(): string {
   const cwd = process.cwd();
@@ -138,9 +82,7 @@ export function getShinDir(): string {
   return path.join(workspaceRoot, "shin");
 }
 
-export function isActiveUserRole(role: string): role is ActiveUserContext["role"] {
-  return activeUserRoles.includes(role as ActiveUserContext["role"]);
-}
+// isActiveUserRole is now in permissions.ts
 
 function activeRoleFromLocalState(): ActiveUserContext["role"] | null {
   const rolePath = path.join(getShinNodeStateDir(), "active-role.json");
@@ -158,14 +100,14 @@ function activeRoleFromLocalState(): ActiveUserContext["role"] | null {
   }
 }
 
-function activeRoleFromEnvironment(): ActiveUserContext["role"] {
+function activeRoleFromEnvironment(): EHRRole {
   const role = process.env.SHIN_ACTIVE_ROLE;
 
   if (role && isActiveUserRole(role)) {
     return role;
   }
 
-  return "administrator";
+  return "system-admin";
 }
 
 const fallbackState: ShinNodeState = {
@@ -200,15 +142,10 @@ export function getEnabledModules(): InstalledModuleState[] {
 
 export function getActiveUserContext(): ActiveUserContext {
   const role = activeRoleFromLocalState() ?? activeRoleFromEnvironment();
-  const profile = roleProfiles[role];
+  const profile = roleProfiles[role] ?? roleProfiles["system-admin"];
+  const safeRole: EHRRole = roleProfiles[role] ? role : "system-admin";
 
-  return { ...profile, role };
+  return { ...profile, role: safeRole };
 }
 
-export function canAccess(user: ActiveUserContext, requiredPermissions: string[] = []): boolean {
-  if (user.role === "administrator" && user.permissions.includes("module.manage")) {
-    return true;
-  }
-
-  return requiredPermissions.every((permission) => user.permissions.includes(permission));
-}
+// canAccess is now in permissions.ts

@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 type TopbarActionsProps = {
-  roleLabel: string;
+  roleLabel?: string;
   userInitials?: string;
 };
 
@@ -30,15 +31,21 @@ function BellIcon() {
   );
 }
 
-export default function TopbarActions({ roleLabel, userInitials = "NA" }: TopbarActionsProps) {
+export default function TopbarActions({ roleLabel: fallbackRoleLabel, userInitials: fallbackInitials = "NA" }: TopbarActionsProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const { logout, user } = useAuth();
+  
+  const displayRole = user?.role || fallbackRoleLabel || "User";
+  const displayUsername = user?.username || "Node Administrator";
+  
+  const computedInitials = user?.username 
+    ? user.username.substring(0, 2).toUpperCase()
+    : fallbackInitials;
 
   return (
     <div className="topbar-actions">
-      <span className="topbar-role">{roleLabel}</span>
-      <Link className="topbar-primary" href="/modules">
-        Manage modules
-      </Link>
+      <span className="topbar-role">{displayRole}</span>
+
       <Link className="topbar-icon" href="/foundation/events" aria-label="Events">
         <BellIcon />
         <span className="notification-dot" />
@@ -52,13 +59,13 @@ export default function TopbarActions({ roleLabel, userInitials = "NA" }: Topbar
           onClick={() => setIsOpen((value) => !value)}
           type="button"
         >
-          {userInitials}
+          {computedInitials}
         </button>
         {isOpen ? (
           <div className="topbar-menu" role="menu">
             <div className="topbar-menu-header">
-              <strong>Node Administrator</strong>
-              <span>{roleLabel}</span>
+              <strong>{displayUsername}</strong>
+              <span>{displayRole}</span>
             </div>
             <Link href="/settings/user" onClick={() => setIsOpen(false)} role="menuitem">
               User settings
@@ -72,6 +79,10 @@ export default function TopbarActions({ roleLabel, userInitials = "NA" }: Topbar
             <Link href="/dashboard" onClick={() => setIsOpen(false)} role="menuitem">
               Dashboard
             </Link>
+            <div style={{ height: '1px', background: '#eaeaea', margin: '4px 0' }} />
+            <a href="#" onClick={(e) => { e.preventDefault(); setIsOpen(false); logout(); }} role="menuitem" style={{ color: '#d32f2f' }}>
+              Logout
+            </a>
           </div>
         ) : null}
       </div>

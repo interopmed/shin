@@ -13,15 +13,15 @@ export const usePermissions = () => {
     
     // Permission checking
     hasPermission: (
-      module: keyof typeof RolePermissions[UserRole.ADMIN],
+      module: string,
       action?: 'view' | 'add' | 'edit' | 'delete'
     ) => hasPermission(userRole, module, action),
     
     // Convenience methods
-    canView: (module: keyof typeof RolePermissions[UserRole.ADMIN]) => canView(userRole, module),
-    canAdd: (module: keyof typeof RolePermissions[UserRole.ADMIN]) => canAdd(userRole, module),
-    canEdit: (module: keyof typeof RolePermissions[UserRole.ADMIN]) => canEdit(userRole, module),
-    canDelete: (module: keyof typeof RolePermissions[UserRole.ADMIN]) => canDelete(userRole, module),
+    canView: (module: string) => canView(userRole, module),
+    canAdd: (module: string) => canAdd(userRole, module),
+    canEdit: (module: string) => canEdit(userRole, module),
+    canDelete: (module: string) => canDelete(userRole, module),
     
     // Current user role
     role: userRole,

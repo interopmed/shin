@@ -3,7 +3,71 @@ from datetime import datetime
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Doctor, Patient, PatientConsentPreference, CareTeam, CareTeamMember, CareTeamNote, Employee
+from apps.doctors.models import Doctor
+from .models import Patient, PatientConsentPreference, CareTeam, CareTeamMember, CareTeamNote, Employee, ServiceUnit, TerminologyConcept, Bed
+
+class TerminologyConceptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TerminologyConcept
+        fields = ["id", "category", "code", "display", "system"]
+
+class BedSerializer(serializers.ModelSerializer):
+    unit_id = serializers.IntegerField(required=False, allow_null=True)
+
+    class Meta:
+        model = Bed
+        fields = ["id", "unit_id", "bed_number", "status", "created_at", "updated_at"]
+
+class ServiceUnitSerializer(serializers.ModelSerializer):
+    facility_id = serializers.IntegerField(required=False, allow_null=True)
+    parent_id = serializers.IntegerField(required=False, allow_null=True)
+    current_patients = serializers.SerializerMethodField()
+    staff = serializers.SerializerMethodField()
+    sub_units = serializers.SerializerMethodField()
+    snomed_department_id = serializers.IntegerField(required=False, allow_null=True)
+    snomed_unit_type_id = serializers.IntegerField(required=False, allow_null=True)
+    snomed_department = TerminologyConceptSerializer(read_only=True)
+    snomed_unit_type = TerminologyConceptSerializer(read_only=True)
+
+    class Meta:
+        model = ServiceUnit
+        fields = [
+            "id", "name", "unit_type", "department", "description", 
+            "capacity", "facility_id", "current_patients", "staff", 
+            "snomed_department_id", "snomed_unit_type_id", "snomed_department", 
+            "snomed_unit_type", "parent_id", "sub_units"
+        ]
+
+    def get_current_patients(self, obj) -> int:
+        return obj.assigned_patients.filter(is_current=True).count()
+
+    def get_sub_units(self, obj):
+        # Prevent infinite recursion by not serializing sub_units of sub_units
+        if hasattr(self, '_is_nested'):
+            return []
+        
+        serializer = ServiceUnitSerializer(
+            obj.sub_units.all(), 
+            many=True, 
+            context=self.context
+        )
+        serializer._is_nested = True
+        return serializer.data
+        
+    def get_staff(self, obj):
+        staff = []
+        seen_ids = set()
+        
+        # Traverse up the hierarchy to include staff assigned to parent units
+        current = obj
+        while current:
+            for assignment in current.assigned_staff.select_related('employee'):
+                if assignment.employee and assignment.employee.id not in seen_ids:
+                    staff.append(assignment.employee.full_name)
+                    seen_ids.add(assignment.employee.id)
+            current = current.parent
+            
+        return staff
 
 
 def _format_datetime(value) -> str:
@@ -100,7 +164,10 @@ class PatientSerializer(serializers.ModelSerializer):
     return _format_datetime(obj.updated_at)
 
   def get_status(self, obj: Patient) -> str:
-    return "Active"
+    # Check if patient has any active admissions
+    if obj.admissions.filter(status='admitted').exists():
+      return "Admitted"
+    return "Clinic"
 
   def get_assignedDoctorName(self, obj: Patient) -> str:
     assigned_doctor = getattr(obj, "assigned_doctor", None)

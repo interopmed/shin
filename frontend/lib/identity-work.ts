@@ -136,7 +136,7 @@ export async function getIdentityWork(): Promise<IdentityWorkResult> {
 }
 
 export async function updateIdentityWorkUser(userId: string, input: IdentityWorkUserUpdateInput): Promise<IdentityWorkUser> {
-  return readJson<IdentityWorkUser>(`/api/identity/work/users/${userId}`, {
+  return readJson<IdentityWorkUser>(`/api/identity/work/users/${userId}/`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",

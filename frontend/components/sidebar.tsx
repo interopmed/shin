@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import type { NavigationGroup } from "../lib/navigation";
-import type { ShinNodeState } from "../lib/node-state";
+import { getNavigationGroups } from "../lib/navigation";
+import { createActiveUserFromToken } from "@/lib/permissions";
+import { useAuth } from "@/hooks/useAuth";
 
 type SidebarProps = {
   nodeState: ShinNodeState;
@@ -134,10 +135,19 @@ function SidebarIcon({ name = "dashboard" }: { name?: string }) {
   );
 }
 
-export default function Sidebar({ nodeState, navigationGroups }: SidebarProps) {
+export default function Sidebar({ nodeState }: SidebarProps) {
   const pathname = usePathname();
   const currentPathname = pathname ?? "/";
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { user } = useAuth();
+  
+  const activeUser = createActiveUserFromToken(user || undefined);
+  const dynamicNavigationGroups = getNavigationGroups(activeUser);
+  
+  const displayRole = user?.role || "User";
+  const computedInitials = user?.username 
+    ? user.username.substring(0, 2).toUpperCase()
+    : "NA";
 
   return (
     <aside className={`sidebar ${isCollapsed ? "is-collapsed" : ""}`}>
@@ -179,7 +189,7 @@ export default function Sidebar({ nodeState, navigationGroups }: SidebarProps) {
             </button>
           </div>
 
-          {navigationGroups.map((group) => (
+          {dynamicNavigationGroups.map((group) => (
             <div className="nav-section" key={group.label}>
               <p className={isCollapsed ? "sr-only" : "nav-heading"}>{group.label}</p>
               <div className="nav-items">
@@ -213,10 +223,10 @@ export default function Sidebar({ nodeState, navigationGroups }: SidebarProps) {
 
         <div className="sidebar-footer">
           <div className={isCollapsed ? "node-chip centered" : "node-chip"}>
-            <div className="node-avatar">NA</div>
+            <div className="node-avatar">{computedInitials}</div>
             <div className={isCollapsed ? "sr-only" : "node-copy"}>
               <p>{nodeState.organization.name}</p>
-              <span>Local administrator</span>
+              <span>{displayRole}</span>
             </div>
           </div>
         </div>

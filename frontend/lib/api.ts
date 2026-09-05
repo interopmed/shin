@@ -734,6 +734,12 @@ class APIService {
     return response.results || response;
   }
 
+  async getStocksPage(token: string, params?: Record<string, string>) {
+    const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
+    const response = await this.request<any>(`/api/stocks/stocks/${queryString}`, { token });
+    return response;
+  }
+
   async createStock(token: string, data: any) {
     return this.request('/api/stocks/stocks/', {
       method: 'POST',
@@ -785,6 +791,12 @@ class APIService {
     return this.request<any>(`/api/employees/employees/${id}/`, { token });
   }
 
+  async getDesignations(token: string, params?: Record<string, string>) {
+    const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
+    const response = await this.request<any>(`/api/employees/designations/${queryString}`, { token });
+    return response.results || response;
+  }
+
   async createEmployee(token: string, data: any) {
     return this.request('/api/employees/employees/', {
       method: 'POST',
@@ -793,11 +805,42 @@ class APIService {
     });
   }
 
+  async getEmployeeUnits(token: string, id: number | string) {
+    return this.request<any[]>(`/api/employees/employees/${id}/units/`, { token });
+  }
+
+  async updateEmployeeUnits(token: string, id: number | string, data: any) {
+    return this.request(`/api/employees/employees/${id}/units/`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getFacilities(token: string, params?: Record<string, string>) {
+    const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
+    const response = await this.request<any>(`/api/facilities/${queryString}`, { token });
+    return response.results || response;
+  }
+
+  async getServiceUnits(token: string, params?: Record<string, string>) {
+    const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
+    const response = await this.request<any>(`/api/service-units/${queryString}`, { token });
+    return response.results || response;
+  }
+
   async updateEmployee(token: string, id: number | string, data: any) {
     return this.request(`/api/employees/employees/${id}/`, {
       method: 'PUT',
       token,
       body: JSON.stringify(data),
+    });
+  }
+
+  async deleteEmployee(token: string, id: number | string) {
+    return this.request(`/api/employees/employees/${id}/`, {
+      method: 'DELETE',
+      token,
     });
   }
 
@@ -868,6 +911,29 @@ class APIService {
     const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
     const response = await this.request<any>(`/api/appointment/schedules/${queryString}`, { token });
     return response.results || response;
+  }
+
+  // Finance / Charge Capture
+  async getChargeItems(token: string, params?: Record<string, string>) {
+    const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
+    const response = await this.request<any>(`/api/finance/charge-items/${queryString}`, { token });
+    return response.results || response;
+  }
+
+  async createChargeItem(token: string, data: any) {
+    return this.request('/api/finance/charge-items/', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateChargeItem(token: string, id: number | string, data: any) {
+    return this.request(`/api/finance/charge-items/${id}/`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
+    });
   }
 }
 

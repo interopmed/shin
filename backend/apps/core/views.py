@@ -11,8 +11,8 @@ from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.doctors.models import Doctor
 from .models import (
-  Doctor,
   Employee,
   Facility,
   IdentityGroup,
@@ -32,6 +32,9 @@ from .models import (
   CareTeam,
   CareTeamMember,
   CareTeamNote,
+  ServiceUnit,
+  TerminologyConcept,
+  Bed,
 )
 from .serializers import (
   DoctorSerializer,
@@ -40,7 +43,11 @@ from .serializers import (
   CareTeamNoteSerializer,
   CareTeamMemberSerializer,
   CareTeamSerializer,
+  ServiceUnitSerializer,
+  TerminologyConceptSerializer,
+  BedSerializer,
 )
+from .permissions import HasFacilityManagePermission, RequirePermission
 
 
 DEFAULT_CONSENT_PREFERENCES = (
@@ -101,6 +108,15 @@ DEFAULT_IDENTITY_GROUPS = (
   {"code": "lab-security", "name": "Lab Security Group", "description": "Laboratory staff and review queue."},
   {"code": "admin-security", "name": "Admin Security Group", "description": "Administrative and configuration access."},
   {"code": "records-security", "name": "Records Security Group", "description": "Records, audit, and compliance access."},
+  {"code": "pharmacy-security", "name": "Pharmacy Security Group", "description": "Pharmacy staff and medication management access."},
+  {"code": "billing-security", "name": "Billing & Finance", "description": "Manages the revenue cycle, insurance claims, patient invoicing, and payment processing."},
+  {"code": "registration-security", "name": "Front Desk & Scheduling", "description": "For receptionists, patient access coordinators, and scheduling staff."},
+  {"code": "compliance-security", "name": "Compliance, Legal & Privacy", "description": "For HIPAA privacy officers, legal counsel, and external auditors."},
+  {"code": "it-security", "name": "IT & System Support", "description": "For technical support staff, database administrators, and integration engineers."},
+  {"code": "research-security", "name": "Research & Analytics", "description": "For clinical researchers, population health analysts, and data scientists."},
+  {"code": "external-provider-security", "name": "External / Referring Providers", "description": "For out-of-network referring physicians, external specialists, or third-party care coordinators."},
+  {"code": "leadership-security", "name": "Executive Leadership", "description": "For the C-suite (CMO, CFO, CEO) and clinic directors."},
+  {"code": "imaging-security", "name": "Imaging & Radiology", "description": "For radiologists, imaging technicians, and PACS administrators."},
 )
 
 DEFAULT_IDENTITY_PERMISSIONS = (
@@ -110,12 +126,11 @@ DEFAULT_IDENTITY_PERMISSIONS = (
   {"code": "lab.read", "module": "lab", "description": "View laboratory records."},
   {"code": "lab.write", "module": "lab", "description": "Create or update laboratory records."},
   {"code": "audit.read", "module": "governance", "description": "View audit log entries."},
-  {"code": "module.manage", "module": "core", "description": "Install, enable, and disable modules."},
   {"code": "identity.manage", "module": "core", "description": "Manage users, groups, and roles."},
 )
 
 DEFAULT_IDENTITY_ROLE_PERMISSIONS = {
-  "administrator": ["patient.read", "patient.write", "provider.read", "lab.read", "lab.write", "audit.read", "module.manage", "identity.manage"],
+  "administrator": ["patient.read", "patient.write", "provider.read", "lab.read", "lab.write", "audit.read", "identity.manage"],
   "clinical-team": ["patient.read", "provider.read", "lab.read"],
   "lab-manager": ["patient.read", "provider.read", "lab.read", "lab.write"],
   "front-desk": ["patient.read", "provider.read"],
@@ -157,9 +172,6 @@ DEFAULT_SYSTEM_SETTINGS = (
   {"section": "External Data Feeds", "key": "feeds.epic", "label": "Epic Node 2", "value": "Connected", "detail": "Primary enterprise feed for external hospital connectivity.", "kind": "text", "tone": "success", "sort_order": 10, "is_editable": True},
   {"section": "External Data Feeds", "key": "feeds.hl7", "label": "HL7 v2.5 Feed", "value": "Connected", "detail": "Inbound message feed for clinical and lab events.", "kind": "text", "tone": "success", "sort_order": 20, "is_editable": True},
   {"section": "External Data Feeds", "key": "feeds.fhir", "label": "FHIR Server", "value": "Connected", "detail": "FHIR interoperability channel for structured records.", "kind": "text", "tone": "success", "sort_order": 30, "is_editable": True},
-  {"section": "Module Integration", "key": "modules.integration", "label": "Module Management", "value": "Managed by installed module registry", "detail": "Uses installed module manifests and setup checklist logic from module contributions.", "kind": "text", "tone": "default", "sort_order": 10, "is_editable": False},
-  {"section": "Module Integration", "key": "modules.extensions", "label": "Available Extensions", "value": "Marketplace ready", "detail": "Approved modules are surfaced from the local module registry.", "kind": "text", "tone": "default", "sort_order": 20, "is_editable": False},
-  {"section": "Module Integration", "key": "modules.lab.feed", "label": "Lab/LIS Module Feed", "value": "Active", "detail": "Lab module order and result workflows follow the installed module package.", "kind": "text", "tone": "success", "sort_order": 30, "is_editable": False},
   {"section": "Global Audit & Provenance", "key": "audit.log.summary", "label": "Global Security Audit Logs", "value": "Available", "detail": "Audit trails are retained for clinical, admin, and lab review.", "kind": "text", "tone": "default", "sort_order": 10, "is_editable": False},
   {"section": "Data Privacy & Consent", "key": "privacy.consent.default", "label": "Consent-by-Default", "value": "Opt-In", "detail": "Patient privacy rules default to opt-in sharing controls.", "kind": "choice", "tone": "default", "sort_order": 10, "is_editable": True},
   {"section": "Data Privacy & Consent", "key": "privacy.access.preferences", "label": "PHI Access Preferences", "value": "Set individual privacy rules", "detail": "Fine-grained access rules can be updated from patient consent records.", "kind": "text", "tone": "default", "sort_order": 20, "is_editable": True},
@@ -443,11 +455,12 @@ class HealthView(APIView):
 
 
 class DoctorViewSet(viewsets.ReadOnlyModelViewSet):
-  queryset = Doctor.objects.all().order_by("name", "id")
+  queryset = Doctor.objects.all().order_by("employee__full_name", "id")
   serializer_class = DoctorSerializer
 
 
 class PatientViewSet(viewsets.ModelViewSet):
+  permission_classes = [] # Temporarily disabled for local development
   queryset = Patient.objects.select_related("assigned_doctor").all().order_by("-updated_at", "-date", "-created_at", "-id")
   serializer_class = PatientSerializer
 
@@ -534,6 +547,8 @@ class PatientConsentView(APIView):
 
 
 class MpiView(APIView):
+  permission_classes = [RequirePermission("patient.read")]
+
   def get(self, request):
     page = int(request.query_params.get("page", 1))
     page_size = int(request.query_params.get("pageSize", 10))
@@ -551,21 +566,26 @@ class MpiView(APIView):
     if sex:
       patients_query = patients_query.filter(sex__iexact=sex)
 
-    # Resolve in memory list to allow dynamic python filtering on calculated confidence score
-    patients_all = list(patients_query)
-
     if confidence:
-      if confidence == "high":
-        patients_all = [p for p in patients_all if _confidence(p) >= 80]
-      elif confidence == "low":
-        patients_all = [p for p in patients_all if _confidence(p) < 80]
+      patients_all = []
+      for p in patients_query.iterator(chunk_size=2000):
+        c = _confidence(p)
+        if confidence == "high" and c >= 80:
+          patients_all.append(p)
+        elif confidence == "low" and c < 80:
+          patients_all.append(p)
+      
+      total_records = len(patients_all)
+      start_index = (page - 1) * page_size
+      end_index = start_index + page_size
+      patients = patients_all[start_index:end_index]
+    else:
+      total_records = patients_query.count()
+      start_index = (page - 1) * page_size
+      end_index = start_index + page_size
+      patients = list(patients_query[start_index:end_index])
 
-    total_records = len(patients_all)
-    start_index = (page - 1) * page_size
-    end_index = start_index + page_size
-    patients = patients_all[start_index:end_index]
-
-    all_patients = list(Patient.objects.only("id", "name", "birthdate", "ebirthdate", "updated_at", "date", "created_at"))
+    all_patients = Patient.objects.only("id", "name", "birthdate", "ebirthdate", "updated_at", "date", "created_at").iterator(chunk_size=5000)
     all_doctors = Doctor.objects.count()
     assigned_links = Patient.objects.exclude(assigned_doctor__isnull=True).count()
 
@@ -932,15 +952,22 @@ class FacilityListView(APIView):
     permission_classes = []  # public endpoint
 
     def _facility_record(self, facility) -> dict:
+        staff_names = set()
+        for unit in facility.service_units.prefetch_related('assigned_staff__employee'):
+            for assignment in unit.assigned_staff.all():
+                if assignment.employee and assignment.employee.full_name:
+                    staff_names.add(assignment.employee.full_name)
+                    
         return {
             "id": str(facility.pk),
             "name": facility.name,
             "type": facility.type,
             "location": facility.location,
-            "departments": facility.departments,
-            "rooms": facility.rooms,
+            "departments": facility.dynamic_departments,
+            "rooms": facility.dynamic_rooms,
             "status": facility.status,
-            "occupancy": facility.occupancy,
+            "occupancy": facility.dynamic_occupancy,
+            "staff": list(staff_names),
         }
 
     def get(self, request):
@@ -979,21 +1006,74 @@ class FacilityListView(APIView):
         return Response(self._facility_record(facility), status=status.HTTP_201_CREATED)
 
 
+class ServiceUnitViewSet(viewsets.ModelViewSet):
+    """
+    CRUD API for ServiceUnits.
+    Read access is allowed for all authenticated users.
+    Write access requires 'facility.manage' or 'module.manage' permission.
+    """
+    serializer_class = ServiceUnitSerializer
+    permission_classes = []
+
+    def get_queryset(self):
+        queryset = ServiceUnit.objects.all().order_by("name")
+        facility_id = self.request.query_params.get("facility_id")
+        if facility_id is not None:
+            queryset = queryset.filter(facility_id=facility_id, parent__isnull=True)
+        return queryset
+
+    def perform_create(self, serializer):
+        unit = serializer.save()
+        # Auto-generate beds if it's a staying unit
+        # Assuming Ward (225746001), ICU (309904001), Emergency (225732001) are staying units
+        staying_codes = ["225746001", "309904001", "225732001"]
+        is_staying = False
+        if unit.snomed_unit_type and unit.snomed_unit_type.code in staying_codes:
+            is_staying = True
+        elif unit.unit_type in ["ward", "icu", "emergency"]:
+            is_staying = True
+            
+        if is_staying and unit.capacity > 0:
+            beds_to_create = []
+            for i in range(1, unit.capacity + 1):
+                beds_to_create.append(Bed(unit=unit, bed_number=f"Bed {i}"))
+            if beds_to_create:
+                Bed.objects.bulk_create(beds_to_create)
+
+
+class BedViewSet(viewsets.ModelViewSet):
+    serializer_class = BedSerializer
+
+    def get_queryset(self):
+        queryset = Bed.objects.all().order_by("bed_number")
+        unit_id = self.request.query_params.get("unit_id")
+        if unit_id is not None:
+            queryset = queryset.filter(unit_id=unit_id)
+        return queryset
+
+
 class FacilityDetailView(APIView):
     """Update a single facility record."""
 
     permission_classes = []
 
     def _facility_record(self, facility) -> dict:
+        staff_names = set()
+        for unit in facility.service_units.prefetch_related('assigned_staff__employee'):
+            for assignment in unit.assigned_staff.all():
+                if assignment.employee and assignment.employee.full_name:
+                    staff_names.add(assignment.employee.full_name)
+                    
         return {
             "id": str(facility.pk),
             "name": facility.name,
             "type": facility.type,
             "location": facility.location,
-            "departments": facility.departments,
-            "rooms": facility.rooms,
+            "departments": facility.dynamic_departments,
+            "rooms": facility.dynamic_rooms,
             "status": facility.status,
-            "occupancy": facility.occupancy,
+            "occupancy": facility.dynamic_occupancy,
+            "staff": list(staff_names),
         }
 
     @transaction.atomic
@@ -1402,6 +1482,17 @@ class CareTeamViewSet(viewsets.ModelViewSet):
                     )
 
 
+class TerminologyConceptViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = TerminologyConceptSerializer
+
+    def get_queryset(self):
+        queryset = TerminologyConcept.objects.all().order_by('display')
+        category = self.request.query_params.get('category', None)
+        if category is not None:
+            queryset = queryset.filter(category=category)
+        return queryset
+
+
 class CareTeamNoteViewSet(viewsets.ModelViewSet):
     queryset = CareTeamNote.objects.all().order_by("-created_at", "-id")
     serializer_class = CareTeamNoteSerializer
@@ -1429,11 +1520,14 @@ class ProviderDirectoryView(APIView):
             tone = tones[idx % len(tones)]
             return status, tone
 
+        from django.utils.text import slugify
+
         for idx, doc in enumerate(doctors):
             patients_count = patient_counts.get(doc.pk, 0)
             status_val, tone_val = get_status_tone(idx, doc.name)
+            slug = slugify(doc.name)
             providers.append({
-                "id": f"doc-{doc.pk}",
+                "id": f"doc-{doc.pk}-{slug}" if slug else f"doc-{doc.pk}",
                 "doctorId": str(doc.pk),
                 "employeeId": None,
                 "name": doc.name,
@@ -1445,12 +1539,13 @@ class ProviderDirectoryView(APIView):
                 "tone": tone_val
             })
 
-        employees = Employee.objects.all()
+        employees = Employee.objects.filter(staff_type="clinical")
         for idx, emp in enumerate(employees):
             status_val, tone_val = get_status_tone(idx + len(doctors), emp.full_name)
             mock_patients = 12 if "Coordinator" in emp.job_title else (8 if "Lead" in emp.job_title else 0)
+            slug = slugify(emp.full_name)
             providers.append({
-                "id": f"emp-{emp.pk}",
+                "id": f"emp-{emp.pk}-{slug}" if slug else f"emp-{emp.pk}",
                 "doctorId": None,
                 "employeeId": str(emp.pk),
                 "name": emp.full_name,
@@ -1525,6 +1620,9 @@ class ProviderDetailView(APIView):
   def get(self, request, provider_id: str):
     provider_type, actual_id = provider_id.split("-", 1) if "-" in provider_id else ("", provider_id)
     
+    # Strip slug if it exists (e.g. 16-sample-pharmacist -> 16)
+    db_id = actual_id.split("-")[0] if "-" in actual_id else actual_id
+
     name = "Unknown Provider"
     role = "Clinical Staff"
     specialty = "General"
@@ -1534,7 +1632,7 @@ class ProviderDetailView(APIView):
     patients_list = []
 
     if provider_type == "doc":
-      doctor = Doctor.objects.filter(pk=actual_id).first()
+      doctor = Doctor.objects.filter(pk=db_id).first()
       if doctor:
         name = doctor.name
         role = doctor.qualifications if doctor.qualifications else "Physician"
@@ -1554,7 +1652,7 @@ class ProviderDetailView(APIView):
             "lastVisit": p.editted_time if p.editted_time else "Not recorded"
           })
     elif provider_type == "emp":
-      employee = Employee.objects.filter(pk=actual_id).first()
+      employee = Employee.objects.filter(pk=db_id).first()
       if employee:
         name = employee.full_name
         role = employee.job_title if employee.job_title else "Clinical Staff"

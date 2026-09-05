@@ -113,7 +113,7 @@ export default function FacilityEditForm({ facility, initialDepartments }: Facil
   }
 
   function onCancel() {
-    router.push(`/facilities/${facility.id}`);
+    router.push(`/facilities/${facility.slug}`);
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -174,7 +174,7 @@ export default function FacilityEditForm({ facility, initialDepartments }: Facil
 
           setBanner(`Saved changes for ${json.facility.name}. Redirecting…`);
           router.refresh();
-          setTimeout(() => router.push(`/facilities/${facility.id}`), 700);
+          setTimeout(() => router.push(`/facilities/${facility.slug}`), 700);
         } catch (err) {
           setError(err instanceof Error ? err.message : "Unable to update facility.");
         }

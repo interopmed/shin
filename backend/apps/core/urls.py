@@ -25,13 +25,22 @@ from .views import (
   TerminologyView,
   IntegrationGatewayView,
   ProviderDetailView,
+  ServiceUnitViewSet,
+  TerminologyConceptViewSet,
+  BedViewSet,
 )
+
+from apps.patients.views import AdmissionViewSet
 
 router = DefaultRouter()
 router.register(r"patients", PatientViewSet, basename="patient")
 router.register(r"doctors", DoctorViewSet, basename="doctor")
 router.register(r"care-teams", CareTeamViewSet, basename="care-team")
 router.register(r"care-team-notes", CareTeamNoteViewSet, basename="care-team-note")
+router.register(r"service-units", ServiceUnitViewSet, basename="service-unit")
+router.register(r"terminology", TerminologyConceptViewSet, basename="terminology-concept")
+router.register(r"beds", BedViewSet, basename="bed")
+router.register(r"admissions", AdmissionViewSet, basename="admission")
 
 urlpatterns = [
   path("health/", HealthView.as_view()),

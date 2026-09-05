@@ -65,7 +65,7 @@ const Header = ({ toggleSidebar }: HeaderProps) => {
                 {testCount} {testCount < 2 ? 'payment' : 'payments'} today
               </p>
               <div className="dropdown-divider"></div>
-              <Link className="dropdown-item" href="/modules/billing/finance/payment">See all payments</Link>
+              <Link className="dropdown-item" href="/billing/finance/payment">See all payments</Link>
             </ul>
           </li>
         )}
@@ -83,7 +83,7 @@ const Header = ({ toggleSidebar }: HeaderProps) => {
                 <p className="red">{paymentNumber} {paymentNumber <= 1 ? 'payment today' : 'payments today'}</p>
               </li>
               <li>
-                <Link href="/modules/billing/finance/payment"><p className="green">See all payments</p></Link>
+                <Link href="/billing/finance/payment"><p className="green">See all payments</p></Link>
               </li>
             </ul>
           </li>

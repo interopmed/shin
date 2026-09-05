@@ -4,18 +4,15 @@ import Link from "next/link";
 import { useDeferredValue, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
-import type { CreateFacilityInput, FacilityRecord } from "../lib/facilities-db";
+import type { CreateFacilityInput, FacilityRecord, ServiceUnitRecord } from "../lib/facilities-db";
+import { useAuth } from "@/context/AuthContext";
+import { canAccess } from "@/lib/permissions";
 
 type FacilitiesClientProps = {
   initialFacilities: FacilityRecord[];
 };
 
-const departments = [
-  { name: "Emergency", site: "Central Medical Center", lead: "Dr. Adam Bennett", capacity: "24 beds", status: "High load" },
-  { name: "Primary Care", site: "Northside Clinic", lead: "Dr. William Scott", capacity: "18 rooms", status: "Ready" },
-  { name: "Specimen Collection", site: "InterOpMed Lab Hub", lead: "Leslie Alexander", capacity: "8 stations", status: "Ready" },
-  { name: "Telehealth Pods", site: "Virtual Care Center", lead: "Theresa Webb", capacity: "12 sessions", status: "Ready" },
-];
+
 
 const infrastructure = [
   { label: "Bed Capacity", value: "82%", detail: "Across inpatient rooms" },
@@ -51,8 +48,8 @@ export default function FacilitiesClient({ initialFacilities }: FacilitiesClient
   const [form, setForm] = useState<CreateFacilityInput>(emptyForm);
   const [formError, setFormError] = useState("");
   const [banner, setBanner] = useState("");
-    // State for managing the saving state of the create‑facility form
-    const [isSaving, setIsSaving] = useState(false);
+  // State for managing the saving state of the create-facility form
+  const [isSaving, setIsSaving] = useState(false);
 
   const [isPending, startTransition] = useTransition();
   const deferredSearch = useDeferredValue(search);
@@ -192,12 +189,6 @@ export default function FacilitiesClient({ initialFacilities }: FacilitiesClient
 
   return (
     <section className="facility-page">
-      <nav className="facility-breadcrumb" aria-label="Breadcrumb">
-        <Link href="/dashboard">Dashboard</Link>
-        <span className="separator">/</span>
-        <span className="current">Facilities</span>
-      </nav>
-
       <div className="facility-card">
         <header className="facility-header">
           <div>
@@ -287,7 +278,7 @@ export default function FacilitiesClient({ initialFacilities }: FacilitiesClient
                     {filteredFacilities.map((facility) => (
                       <tr key={facility.id || facility.name}>
                         <td>
-                          <Link href={`/facilities/${facility.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                          <Link href={`/facilities/${facility.slug}`} style={{ textDecoration: "none", color: "inherit" }}>
                             <strong>{facility.name}</strong>
                           </Link>
                         </td>
@@ -309,39 +300,7 @@ export default function FacilitiesClient({ initialFacilities }: FacilitiesClient
                           </span>
                         </td>
                         <td>
-                          <div className="facility-row-actions">
-                            <button
-                              aria-expanded={menuId === facility.id}
-                              aria-label={`More actions for ${facility.name}`}
-                              className="facility-menu-button"
-                              onClick={() => setMenuId((current) => (current === facility.id ? "" : facility.id))}
-                              type="button"
-                            >
-                              &#8942;
-                            </button>
-                            {menuId === facility.id ? (
-                              <div className="facility-row-menu">
-                                <button onClick={() => copyName(facility.name)} type="button">
-                                  Copy name
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    openMap(facility.location);
-                                    setMenuId("");
-                                  }}
-                                  type="button"
-                                >
-                                  Open map
-                                </button>
-                                <Link href={`/facilities/${facility.id}`}>
-                                  View details
-                                </Link>
-                                <Link href={`/facilities/${facility.id}/edit`}>
-                                  Edit
-                                </Link>
-                              </div>
-                            ) : null}
-                          </div>
+                          {/* Actions removed */}
                         </td>
                       </tr>
                     ))}
@@ -357,27 +316,6 @@ export default function FacilitiesClient({ initialFacilities }: FacilitiesClient
                     ) : null}
                   </tbody>
                 </table>
-              </div>
-            </section>
-
-            <section className="facility-panel" id="facility-departments">
-              <div className="facility-panel-header">
-                <h2>Departments & Service Areas</h2>
-                <button className="facility-secondary-button compact" onClick={manageMap} type="button">
-                  Manage Map
-                </button>
-              </div>
-              <div className="facility-department-list">
-                {departments.map((department) => (
-                  <div className="facility-department" key={department.name}>
-                    <div>
-                      <strong>{department.name}</strong>
-                      <p>{department.site} | Lead: {department.lead}</p>
-                    </div>
-                    <span>{department.capacity}</span>
-                    <button type="button">{department.status}</button>
-                  </div>
-                ))}
               </div>
             </section>
           </div>

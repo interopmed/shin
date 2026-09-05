@@ -2,30 +2,6 @@ from django.db import models
 from django.utils import timezone
 
 
-class Doctor(models.Model):
-  name = models.CharField(max_length=100)
-  f_name = models.CharField(max_length=30, blank=True, default="")
-  l_name = models.CharField(max_length=30, blank=True, default="")
-  phone = models.CharField(max_length=100, blank=True, default="")
-  address = models.CharField(max_length=100, blank=True, default="")
-  email = models.EmailField(null=True, blank=True)
-  department = models.CharField(max_length=100, blank=True, default="")
-  qualifications = models.CharField(max_length=50, blank=True, default="")
-  speciality = models.CharField(max_length=100, blank=True, null=True, default="")
-  notes = models.CharField(max_length=500, blank=True, default="")
-  institute = models.IntegerField(default=0)
-  due_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-  user_id = models.CharField(max_length=100, blank=True, default="")
-  img_url = models.CharField(max_length=100, blank=True, default="")
-
-  class Meta:
-    managed = False
-    db_table = "doctor"
-
-  def __str__(self) -> str:
-    return self.name
-
-
 class Patient(models.Model):
   name = models.CharField(max_length=100)
   phone = models.CharField(max_length=100, blank=True, default="")
@@ -37,7 +13,7 @@ class Patient(models.Model):
   age = models.CharField(max_length=100, blank=True, default="")
   bloodgroup = models.CharField(max_length=100, blank=True, default="")
   assigned_doctor = models.ForeignKey(
-    Doctor,
+    "doctors.Doctor",
     on_delete=models.SET_NULL,
     null=True,
     blank=True,
@@ -350,6 +326,24 @@ class Facility(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
 
+    @property
+    def dynamic_departments(self):
+        return self.service_units.count()
+
+    @property
+    def dynamic_rooms(self):
+        from django.db.models import Sum
+        return self.service_units.aggregate(Sum('capacity'))['capacity__sum'] or 0
+
+    @property
+    def dynamic_occupancy(self):
+        total_rooms = self.dynamic_rooms
+        if total_rooms == 0:
+            return "0%"
+        from .models import PatientUnitAssignment
+        total_patients = PatientUnitAssignment.objects.filter(unit__facility=self, is_current=True).count()
+        return f"{round((total_patients / total_rooms) * 100)}%"
+
     class Meta:
         managed = False
         db_table = "facility"
@@ -394,7 +388,7 @@ class ThreatAlert(models.Model):
 class CareTeam(models.Model):
     name = models.CharField(max_length=255)
     lead_doctor = models.ForeignKey(
-        Doctor,
+        "doctors.Doctor",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -430,7 +424,7 @@ class CareTeamMember(models.Model):
         related_name="members",
     )
     doctor = models.ForeignKey(
-        Doctor,
+        "doctors.Doctor",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -475,4 +469,112 @@ class CareTeamNote(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+
+class TerminologyConcept(models.Model):
+    category = models.CharField(max_length=50)
+    code = models.CharField(max_length=100)
+    display = models.CharField(max_length=255)
+    system = models.CharField(max_length=255, default="http://snomed.info/sct")
+
+    class Meta:
+        managed = True
+        db_table = "terminology_concept"
+        unique_together = (("system", "code", "category"),)
+
+    def __str__(self) -> str:
+        return f"{self.display} ({self.code})"
+
+class ServiceUnit(models.Model):
+    UNIT_TYPES = [
+        ("ward", "Inpatient Ward"),
+        ("icu", "Intensive Care Unit"),
+        ("emergency", "Emergency / ETU"),
+        ("opd", "Outpatient Department"),
+        ("clinic", "Specialty Clinic"),
+        ("lab", "Laboratory / Pathology"),
+        ("radiology", "Radiology"),
+        ("pharmacy", "Pharmacy"),
+        ("procedure", "Procedure Unit"),
+        ("therapy", "Therapy Department"),
+    ]
+    name = models.CharField(max_length=150)
+    unit_type = models.CharField(max_length=50, choices=UNIT_TYPES)
+    snomed_unit_type = models.ForeignKey(TerminologyConcept, on_delete=models.SET_NULL, null=True, blank=True, related_name="unit_types")
+    facility = models.ForeignKey('Facility', on_delete=models.CASCADE, related_name="service_units", null=True, blank=True)
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, related_name="sub_units", null=True, blank=True)
+    department = models.CharField(max_length=100, blank=True, default="")
+    snomed_department = models.ForeignKey(TerminologyConcept, on_delete=models.SET_NULL, null=True, blank=True, related_name="departments")
+    description = models.TextField(blank=True, default="")
+    capacity = models.IntegerField(default=0) # 0 for non-bed units like OPD
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = True
+        db_table = "service_unit"
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class ServiceUnitStaff(models.Model):
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column="employee_id", related_name="unit_assignments")
+    unit = models.ForeignKey(ServiceUnit, on_delete=models.CASCADE, db_column="unit_id", related_name="assigned_staff")
+    is_primary = models.BooleanField(default=True)
+    role = models.CharField(max_length=40, default="staff")
+    assigned_at = models.DateTimeField(default=timezone.now)
+    assigned_until = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        managed = True
+        db_table = "service_unit_staff"
+        unique_together = (("employee", "unit"),)
+
+
+class Bed(models.Model):
+    STATUS_CHOICES = [
+        ("available", "Available"),
+        ("occupied", "Occupied"),
+        ("maintenance", "Maintenance"),
+    ]
+    unit = models.ForeignKey(ServiceUnit, on_delete=models.CASCADE, related_name="beds")
+    bed_number = models.CharField(max_length=50) # e.g. "Bed 1", "Bed 2"
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="available")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = True
+        db_table = "bed"
+        unique_together = (("unit", "bed_number"),)
+
+    def __str__(self) -> str:
+        return f"{self.unit.name} - {self.bed_number}"
+
+
+class PatientUnitAssignment(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, db_column="patient_id", related_name="unit_assignments")
+    unit = models.ForeignKey(ServiceUnit, on_delete=models.CASCADE, db_column="unit_id", related_name="assigned_patients")
+    bed = models.ForeignKey(Bed, on_delete=models.SET_NULL, null=True, blank=True, related_name="assignments")
+    admitted_at = models.DateTimeField(default=timezone.now)
+    discharged_at = models.DateTimeField(null=True, blank=True)
+    is_current = models.BooleanField(default=True)
+
+    class Meta:
+        managed = True
+        db_table = "patient_unit_assignment"
+
+
+class PatientReferral(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, db_column="patient_id", related_name="referrals")
+    referring_employee = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column="referring_employee_id", related_name="made_referrals")
+    referred_to_employee = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column="referred_to_employee_id", related_name="received_referrals")
+    reason = models.TextField(blank=True, default="")
+    referred_at = models.DateTimeField(default=timezone.now)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        managed = True
+        db_table = "patient_referral"
 

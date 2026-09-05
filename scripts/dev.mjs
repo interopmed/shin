@@ -6,7 +6,7 @@ const isWindows = process.platform === "win32";
 if (isWindows) {
   const options = { stdio: "ignore", detached: true, shell: true, cwd: process.cwd() };
   const front = spawn('start "SHIN Frontend" cmd.exe /K "npm run frontend:dev"', options);
-  const back = spawn('start "SHIN Backend" cmd.exe /K "npm run backend:dev"', options);
+  const back = spawn('start "SHIN Backend" cmd.exe /K "cd backend && .\\venv\\Scripts\\activate && python manage.py runserver 127.0.0.1:8000"', options);
   front.unref();
   back.unref();
   console.log("Dev servers launched in separate CMD windows.");
@@ -50,7 +50,7 @@ function startNpmScript(label, scriptName) {
 }
 
 const frontend = startNpmScript("frontend", "frontend:dev");
-const backend = startNpmScript("backend", "backend:dev");
+const backend = startProcess("backend", "bash", ["-c", "cd backend && source venv/bin/activate && python manage.py runserver 127.0.0.1:8000"]);
 
 const children = [frontend, backend];
 let shuttingDown = false;

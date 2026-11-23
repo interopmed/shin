@@ -8,6 +8,10 @@ node_modules/
 dist/
 build/
 out/
+staticfiles/
+backend/staticfiles/
+venv/
+backend/venv/
 
 # local node state
 .shin-node/

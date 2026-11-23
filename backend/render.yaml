@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: shin-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+    startCommand: gunicorn config.wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.9
+      - key: DJANGO_DEBUG
+        value: "0"
+      - key: SHIN_DATABASE_URL
+        sync: false
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_ALLOWED_HOSTS
+        value: "shin.interopmed.com,interopmed.com,.onrender.com"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://shin.interopmed.com,https://interopmed.com"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://shin.interopmed.com,https://interopmed.com"

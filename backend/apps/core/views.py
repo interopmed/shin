@@ -263,6 +263,8 @@ def _ensure_consent_preferences(patient: Patient) -> list[PatientConsentPreferen
 
 
 def _ensure_identity_seed() -> None:
+  if IdentityUser.objects.exists() and IdentityRole.objects.exists():
+    return
   role_objects = {
     item["code"]: IdentityRole(**item)
     for item in DEFAULT_IDENTITY_ROLES
@@ -721,13 +723,20 @@ class MpiView(APIView):
     return Response({"detail": "Action not supported."}, status=status.HTTP_400_BAD_REQUEST)
 
 
-def _identity_user_record(user: IdentityUser) -> dict:
-  role_link = IdentityUserRole.objects.filter(user=user).select_related("role").first()
-  group_link = IdentityUserGroup.objects.filter(user=user).select_related("group").first()
-  provider = user.provider_person
+def _identity_user_record(user: IdentityUser, user_roles_map=None, user_groups_map=None) -> dict:
+  if user_roles_map is not None:
+    role = user_roles_map.get(user.pk)
+  else:
+    role_link = IdentityUserRole.objects.filter(user=user).select_related("role").first()
+    role = role_link.role if role_link else None
 
-  role = role_link.role if role_link else None
-  group = group_link.group if group_link else None
+  if user_groups_map is not None:
+    group = user_groups_map.get(user.pk)
+  else:
+    group_link = IdentityUserGroup.objects.filter(user=user).select_related("group").first()
+    group = group_link.group if group_link else None
+
+  provider = user.provider_person
 
   return {
     "id": str(user.pk),
@@ -768,10 +777,22 @@ def _identity_lookup_payload() -> dict:
   }
 
 
-def _employee_record(employee: Employee) -> dict:
+def _employee_record(employee: Employee, user_roles_map=None, user_groups_map=None) -> dict:
   user = employee.user
-  role_link = IdentityUserRole.objects.filter(user=user).select_related("role").first() if user else None
-  group_link = IdentityUserGroup.objects.filter(user=user).select_related("group").first() if user else None
+  role = None
+  group = None
+  if user:
+    if user_roles_map is not None:
+      role = user_roles_map.get(user.pk)
+    else:
+      role_link = IdentityUserRole.objects.filter(user=user).select_related("role").first()
+      role = role_link.role if role_link else None
+
+    if user_groups_map is not None:
+      group = user_groups_map.get(user.pk)
+    else:
+      group_link = IdentityUserGroup.objects.filter(user=user).select_related("group").first()
+      group = group_link.group if group_link else None
 
   return {
     "id": str(employee.pk),
@@ -785,8 +806,8 @@ def _employee_record(employee: Employee) -> dict:
     "facility": employee.facility,
     "isActive": employee.is_active,
     "username": user.username if user else "",
-    "roleName": role_link.role.name if role_link else "Unassigned",
-    "groupName": group_link.group.name if group_link else "Unassigned",
+    "roleName": role.name if role else "Unassigned",
+    "groupName": group.name if group else "Unassigned",
   }
 
 
@@ -799,18 +820,21 @@ def _identity_payload() -> dict:
   organizations = list(ProviderOrganization.objects.all().order_by("name", "id"))
   people = list(ProviderPerson.objects.select_related("organization").all().order_by("full_name", "id"))
 
-  role_permission_counts = {
-    role.code: IdentityRolePermission.objects.filter(role=role).count()
-    for role in roles
-  }
-  role_user_counts = {
-    role.code: IdentityUserRole.objects.filter(role=role).count()
-    for role in roles
-  }
-  group_user_counts = {
-    group.code: IdentityUserGroup.objects.filter(group=group).count()
-    for group in groups
-  }
+  # Pre-fetch role and group associations in 2 queries instead of hundreds of round-trips
+  user_roles_map = {ur.user_id: ur.role for ur in IdentityUserRole.objects.select_related("role").all()}
+  user_groups_map = {ug.user_id: ug.group for ug in IdentityUserGroup.objects.select_related("group").all()}
+
+  role_permission_counts = {}
+  for rp in IdentityRolePermission.objects.all():
+    role_permission_counts[rp.role_id] = role_permission_counts.get(rp.role_id, 0) + 1
+
+  role_user_counts = {}
+  for ur in IdentityUserRole.objects.all():
+    role_user_counts[ur.role_id] = role_user_counts.get(ur.role_id, 0) + 1
+
+  group_user_counts = {}
+  for ug in IdentityUserGroup.objects.all():
+    group_user_counts[ug.group_id] = group_user_counts.get(ug.group_id, 0) + 1
 
   return {
     "summary": {
@@ -823,8 +847,8 @@ def _identity_payload() -> dict:
       "externalDoctors": sum(1 for person in people if person.provider_category == "doctor"),
       "institutes": sum(1 for organization in organizations if organization.organization_type == "institute"),
     },
-    "users": [_identity_user_record(user) for user in users],
-    "employees": [_employee_record(employee) for employee in employees],
+    "users": [_identity_user_record(user, user_roles_map, user_groups_map) for user in users],
+    "employees": [_employee_record(employee, user_roles_map, user_groups_map) for employee in employees],
     "roles": [
       {
         "id": str(role.pk),
@@ -832,8 +856,8 @@ def _identity_payload() -> dict:
         "name": role.name,
         "scope": role.scope,
         "description": role.description,
-        "userCount": role_user_counts.get(role.code, 0),
-        "permissionCount": role_permission_counts.get(role.code, 0),
+        "userCount": role_user_counts.get(role.pk, 0),
+        "permissionCount": role_permission_counts.get(role.pk, 0),
       }
       for role in roles
     ],
@@ -843,7 +867,7 @@ def _identity_payload() -> dict:
         "code": group.code,
         "name": group.name,
         "description": group.description,
-        "memberCount": group_user_counts.get(group.code, 0),
+        "memberCount": group_user_counts.get(group.pk, 0),
       }
       for group in groups
     ],

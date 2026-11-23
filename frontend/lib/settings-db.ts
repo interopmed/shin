@@ -1,3 +1,5 @@
+import { getBackendBaseUrl } from "./backend-config";
+
 export type SystemSettingRecord = {
   id: string;
   section: string;
@@ -32,7 +34,7 @@ type SettingUpdateInput = {
 };
 
 function backendBaseUrl() {
-  return (process.env.SHIN_BACKEND_URL || process.env.BACKEND_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
+  return getBackendBaseUrl();
 }
 
 function backendUrl(path: string) {

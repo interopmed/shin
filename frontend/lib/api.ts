@@ -1,6 +1,7 @@
 // API service for Django backend
-const DEFAULT_PROD_API = 'https://shin-backend-mg15.onrender.com';
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? DEFAULT_PROD_API : 'http://127.0.0.1:8000');
+import { getBackendBaseUrl } from './backend-config';
+
+const API_BASE_URL = getBackendBaseUrl();
 
 interface RequestOptions extends RequestInit {
   token?: string;

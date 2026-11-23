@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { getBackendBaseUrl } from "@/lib/backend-config";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FacilityRecord, ServiceUnitRecord, updateServiceUnit } from "@/lib/facilities-db";
@@ -31,12 +32,13 @@ export default function ServiceUnitDetailClient({
   const [firmId, setFirmId] = useState<string>('');
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/clinical-firms/')
+    const apiBase = getBackendBaseUrl();
+    fetch(`${apiBase}/api/clinical-firms/`)
       .then(res => res.json())
       .then(data => setDbFirms(Array.isArray(data) ? data : (data.results || [])))
       .catch(console.error);
 
-    fetch('http://localhost:8000/api/firm-ward-coverages/')
+    fetch(`${apiBase}/api/firm-ward-coverages/`)
       .then(res => res.json())
       .then(data => {
         const results = Array.isArray(data) ? data : (data.results || []);
@@ -81,14 +83,15 @@ export default function ServiceUnitDetailClient({
           is_exclusive: coverageType === 'exclusive'
         };
 
+        const apiBase = getBackendBaseUrl();
         if (coverageId) {
-          await fetch(`http://localhost:8000/api/firm-ward-coverages/${coverageId}/`, {
+          await fetch(`${apiBase}/api/firm-ward-coverages/${coverageId}/`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(covPayload)
           });
         } else if (firmId || coverageType === 'exclusive') {
-          await fetch(`http://localhost:8000/api/firm-ward-coverages/`, {
+          await fetch(`${apiBase}/api/firm-ward-coverages/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(covPayload)

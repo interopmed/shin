@@ -1,4 +1,4 @@
-export const DEFAULT_PROD_API = "https://shin-backend-mg15.onrender.com";
+export const DEFAULT_PROD_API = "https://api-shin.interopmed.com";
 
 export function getBackendBaseUrl(): string {
   if (typeof window !== "undefined") {
@@ -6,8 +6,8 @@ export function getBackendBaseUrl(): string {
     return (
       process.env.NEXT_PUBLIC_API_URL ||
       (window.location.hostname.includes("interopmed.com") ||
-      window.location.hostname.includes("vercel.app") ||
-      process.env.NODE_ENV === "production"
+        window.location.hostname.includes("vercel.app") ||
+        process.env.NODE_ENV === "production"
         ? DEFAULT_PROD_API
         : "http://127.0.0.1:8000")
     ).replace(/\/+$/, "");

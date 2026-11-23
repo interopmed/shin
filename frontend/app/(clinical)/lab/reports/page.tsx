@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { usePermissions } from '@/hooks/usePermissions';
+import { canAccess, createActiveUserFromToken } from '@/lib/permissions';
 
 type LabTest = {
   name: string;
@@ -47,12 +47,12 @@ const LabReportsPage = () => {
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
 
   const { user } = useAuth();
-  const { hasAnyRole } = usePermissions();
+  const activeUser = createActiveUserFromToken(user || undefined);
+  const hasAccess = canAccess(activeUser, ['lab.read']);
   const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
-    // Only Doctors, Lab Techs, and Admins can view the global reports list.
-    if (user && !hasAnyRole(['doctor', 'lab-technician', 'system-admin', 'radiologist'])) {
+    if (user && !hasAccess) {
       setAccessDenied(true);
       setLoading(false);
       return;

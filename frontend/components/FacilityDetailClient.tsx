@@ -144,6 +144,9 @@ export default function FacilityDetailClient({ facility, initialServiceUnits }: 
             <Link className="facility-secondary-button" href="/facilities">
               Back to Facilities
             </Link>
+            <Link className="facility-secondary-button" href={`/facilities/${facility.slug}/firms`}>
+              Manage Clinical Firms
+            </Link>
             <button className="facility-primary-button" onClick={() => setShowManageUnits(true)} type="button">
               + Add Service Unit
             </button>

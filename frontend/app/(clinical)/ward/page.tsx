@@ -2,24 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-
-// Mock data for ward patients
-export const WARD_PATIENTS = [
-  { id: 1, name: 'John Doe', room: '201', status: 'pending_vitals', lastVitals: '08:00 AM', alerts: 1 },
-  { id: 2, name: 'Jane Smith', room: '203', status: 'stable', lastVitals: '10:00 AM', alerts: 0 },
-  { id: 3, name: 'Robert Johnson', room: '204', status: 'discharge_ready', lastVitals: '07:30 AM', alerts: 0 },
-  { id: 4, name: 'Emily Davis', room: '205', status: 'abnormal_vitals', lastVitals: '11:15 AM', alerts: 2 },
-  { id: 5, name: 'Michael Brown', room: '206', status: 'stable', lastVitals: '10:30 AM', alerts: 0 },
-  { id: 6, name: 'Sarah Wilson', room: '207', status: 'pending_vitals', lastVitals: '07:45 AM', alerts: 1 },
-  { id: 7, name: 'David Lee', room: '208', status: 'stable', lastVitals: '09:15 AM', alerts: 0 },
-  { id: 8, name: 'Laura Garcia', room: '209', status: 'abnormal_vitals', lastVitals: '11:00 AM', alerts: 1 },
-  { id: 9, name: 'James Martinez', room: '210', status: 'discharge_ready', lastVitals: '08:30 AM', alerts: 0 },
-  { id: 10, name: 'Linda Taylor', room: '211', status: 'stable', lastVitals: '10:45 AM', alerts: 0 },
-  { id: 11, name: 'William Thomas', room: '212', status: 'pending_vitals', lastVitals: '07:15 AM', alerts: 0 },
-  { id: 12, name: 'Elizabeth Moore', room: '213', status: 'stable', lastVitals: '09:00 AM', alerts: 0 },
-];
+import { useAuth } from '@/context/AuthContext';
+import { WARD_PATIENTS } from '@/lib/clinical-mock-data';
 
 export default function WardDashboard() {
+  const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [admissions, setAdmissions] = useState<any[]>([]);
@@ -35,27 +22,37 @@ export default function WardDashboard() {
         const mapped = results.map((adm: any) => ({
           id: adm.patient, // using patient ID for routing
           admission_id: adm.id,
+          unit_id: adm.unit_id,
           name: adm.patient_name || 'Unknown',
           room: adm.bed || 'Unassigned',
           status: adm.status === 'admitted' ? 'stable' : adm.status,
           lastVitals: 'N/A', // Vitals not in Admission API currently
           alerts: 0,
         }));
-        // If API fails or is empty, use mock data
-        setAdmissions(mapped.length > 0 ? mapped : WARD_PATIENTS);
+        
+        // Filter out discharged patients and always use API results even if empty
+        const activeAdmissions = mapped.filter((adm: any) => adm.status !== 'discharged');
+        setAdmissions(activeAdmissions);
         setLoading(false);
       })
       .catch(err => {
         console.error('Error fetching admissions:', err);
+        // Only use mock data on complete API failure
         setAdmissions(WARD_PATIENTS);
         setLoading(false);
       });
   }, []);
 
-  const filteredPatients = admissions.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (p.room && p.room.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredPatients = admissions.filter(p => {
+    // Role-based unit filtering
+    const userUnits = user?.scope?.unit_ids;
+    if (userUnits && userUnits.length > 0 && p.unit_id) {
+       if (!userUnits.includes(p.unit_id)) return false;
+    }
+
+    return p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (p.room && p.room.toLowerCase().includes(searchQuery.toLowerCase()));
+  });
 
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
   const currentPatients = filteredPatients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -127,35 +124,9 @@ export default function WardDashboard() {
                     ) : '—'}
                   </td>
                   <td style={{ display: 'flex', gap: '8px' }}>
-                    <Link className="mpi-action-pill low" href={`/ward/${patient.id}/vitals`}>
-                      Record Vitals
+                    <Link className="mpi-action-pill" href={`/patients/${patient.id}`} style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', textDecoration: 'none' }}>
+                      Admission Workflow
                     </Link>
-                    {patient.admission_id && (
-                      <button
-                        className="mpi-action-pill"
-                        style={{ background: '#dbeafe', color: '#1e40af', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-                        onClick={async () => {
-                          if (window.confirm(`Are you sure you want to discharge ${patient.name}?`)) {
-                            try {
-                              const res = await fetch(`http://localhost:8000/api/admissions/${patient.admission_id}/discharge/`, {
-                                method: 'POST'
-                              });
-                              if (res.ok) {
-                                alert('Patient discharged successfully!');
-                                window.location.reload();
-                              } else {
-                                alert('Failed to discharge patient');
-                              }
-                            } catch (e) {
-                              console.error(e);
-                              alert('Error discharging patient');
-                            }
-                          }
-                        }}
-                      >
-                        Discharge
-                      </button>
-                    )}
                   </td>
                 </tr>
               ))}

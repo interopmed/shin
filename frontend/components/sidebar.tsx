@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { getNavigationGroups } from "../lib/navigation";
+import { getNavigationGroups, NavigationGroup } from "../lib/navigation";
 import { createActiveUserFromToken } from "@/lib/permissions";
 import { useAuth } from "@/hooks/useAuth";
+import type { ShinNodeState } from "@/lib/node-state";
 
 type SidebarProps = {
   nodeState: ShinNodeState;
@@ -110,6 +111,16 @@ function SidebarIcon({ name = "dashboard" }: { name?: string }) {
         <path d="M14 7h1" />
         <path d="M9 12h1" />
         <path d="M14 12h1" />
+      </svg>
+    );
+  }
+
+  if (name === "imaging") {
+    return (
+      <svg {...commonProps}>
+        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+        <circle cx="9" cy="9" r="2" />
+        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
       </svg>
     );
   }

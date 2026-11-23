@@ -80,14 +80,24 @@ export default function ProviderDetailClient({ provider }: ProviderDetailClientP
   return (
     <section className="provider-detail-page">
       <header className="page-header" style={{ marginBottom: "2rem" }}>
-        <div>
-          <div className="eyebrow" style={{ color: "var(--accent)", textTransform: "uppercase", fontSize: "0.85rem", fontWeight: "bold" }}>
-            Provider Registry Profile
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
+          <div>
+            <div className="eyebrow" style={{ color: "var(--accent)", textTransform: "uppercase", fontSize: "0.85rem", fontWeight: "bold" }}>
+              Provider Registry Profile
+            </div>
+            <h1>{provider.name}</h1>
+            <p className="muted">
+              Department: <strong>{provider.department}</strong> · Specialty: <strong>{provider.specialty}</strong>
+            </p>
           </div>
-          <h1>{provider.name}</h1>
-          <p className="muted">
-            Department: <strong>{provider.department}</strong> · Specialty: <strong>{provider.specialty}</strong>
-          </p>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <Link href={`/human-resources/employees/edit/${provider.id}`} className="button secondary" style={{ padding: "8px 16px", borderRadius: "6px", fontWeight: "bold" }}>
+              Edit Profile
+            </Link>
+            <Link href={`/providers/edit/${provider.id}`} className="button" style={{ background: "var(--accent)", color: "white", textDecoration: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold" }}>
+              Edit Assignments
+            </Link>
+          </div>
         </div>
       </header>
 

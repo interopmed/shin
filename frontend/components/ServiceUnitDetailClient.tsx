@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FacilityRecord, ServiceUnitRecord, updateServiceUnit } from "@/lib/facilities-db";
@@ -25,6 +25,31 @@ export default function ServiceUnitDetailClient({
     capacity: initialServiceUnit.capacity,
   });
 
+  const [dbFirms, setDbFirms] = useState<any[]>([]);
+  const [coverageId, setCoverageId] = useState<number | null>(null);
+  const [coverageType, setCoverageType] = useState<'exclusive' | 'shared'>('shared');
+  const [firmId, setFirmId] = useState<string>('');
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/clinical-firms/')
+      .then(res => res.json())
+      .then(data => setDbFirms(Array.isArray(data) ? data : (data.results || [])))
+      .catch(console.error);
+
+    fetch('http://localhost:8000/api/firm-ward-coverages/')
+      .then(res => res.json())
+      .then(data => {
+        const results = Array.isArray(data) ? data : (data.results || []);
+        const cov = results.find((c: any) => String(c.unit) === String(initialServiceUnit.id));
+        if (cov) {
+          setCoverageId(cov.id);
+          setCoverageType(cov.is_exclusive ? 'exclusive' : 'shared');
+          if (cov.firm) setFirmId(String(cov.firm.id || cov.firm));
+        }
+      })
+      .catch(console.error);
+  }, [initialServiceUnit.id]);
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -48,6 +73,28 @@ export default function ServiceUnitDetailClient({
           },
           user?.token
         );
+
+        // Update Coverage
+        const covPayload = {
+          unit_id: initialServiceUnit.id,
+          firm_id: firmId ? parseInt(firmId, 10) : null,
+          is_exclusive: coverageType === 'exclusive'
+        };
+
+        if (coverageId) {
+          await fetch(`http://localhost:8000/api/firm-ward-coverages/${coverageId}/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(covPayload)
+          });
+        } else if (firmId || coverageType === 'exclusive') {
+          await fetch(`http://localhost:8000/api/firm-ward-coverages/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(covPayload)
+          });
+        }
+
         setSuccess("Service unit updated successfully.");
         router.refresh();
       } catch (err) {
@@ -134,12 +181,26 @@ export default function ServiceUnitDetailClient({
                 </label>
                 <label>
                   Department
-                  <input
+                  <select
                     required
                     value={unitForm.department}
                     onChange={(e) => setUnitForm({ ...unitForm, department: e.target.value })}
                     disabled={isPending}
-                  />
+                  >
+                    <option value="">Select a department...</option>
+                    <option value="Medicine">Medicine</option>
+                    <option value="Surgery">Surgery</option>
+                    <option value="Cardiology">Cardiology</option>
+                    <option value="Pediatrics">Pediatrics</option>
+                    <option value="Obstetrics & Gynecology">Obstetrics & Gynecology</option>
+                    <option value="Oncology">Oncology</option>
+                    <option value="Orthopedics">Orthopedics</option>
+                    <option value="Neurology">Neurology</option>
+                    <option value="Psychiatry">Psychiatry</option>
+                    <option value="Radiology">Radiology</option>
+                    <option value="Emergency">Emergency</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </label>
                 <label>
                   Capacity
@@ -151,6 +212,40 @@ export default function ServiceUnitDetailClient({
                     disabled={isPending}
                   />
                 </label>
+              </div>
+
+              <h3 style={{ marginTop: '24px', fontSize: '1.1rem', fontWeight: 600, color: '#1e293b' }}>Clinical Coverage</h3>
+              <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '16px' }}>Configure how this ward connects to consultant units.</p>
+              
+              <div className="patient-form-grid" style={{ marginBottom: '24px' }}>
+                <label>
+                  Coverage Type
+                  <select
+                    value={coverageType}
+                    onChange={(e) => setCoverageType(e.target.value as 'exclusive' | 'shared')}
+                    disabled={isPending}
+                  >
+                    <option value="shared">Shared Coverage (Multiple Consultants)</option>
+                    <option value="exclusive">Exclusive (Single Consultant Unit)</option>
+                  </select>
+                </label>
+                
+                {coverageType === 'exclusive' && (
+                  <label>
+                    Assigned Clinical Firm
+                    <select
+                      value={firmId}
+                      onChange={(e) => setFirmId(e.target.value)}
+                      disabled={isPending}
+                      required={coverageType === 'exclusive'}
+                    >
+                      <option value="">Select a firm...</option>
+                      {dbFirms.map(f => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
               </div>
 
               {error && <p className="patient-form-error">{error}</p>}

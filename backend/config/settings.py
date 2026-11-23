@@ -46,7 +46,14 @@ def parse_database_url(url: str) -> dict[str, str]:
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-shin-core")
 DEBUG = os.getenv("DJANGO_DEBUG", "1") not in {"0", "false", "False"}
-ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",") if host.strip()]
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        "DJANGO_ALLOWED_HOSTS",
+        "localhost,127.0.0.1,testserver,shin.interopmed.com,.onrender.com,.up.railway.app",
+    ).split(",")
+    if host.strip()
+]
 
 INSTALLED_APPS = [
   "django.contrib.admin",
@@ -130,9 +137,25 @@ REST_FRAMEWORK = {
   "PAGE_SIZE": 200,
 }
 
-CORS_ALLOWED_ORIGINS = [
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-]
+cors_origins_env = os.getenv("CORS_ALLOWED_ORIGINS")
+if cors_origins_env:
+  CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+  CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://shin.interopmed.com",
+    "https://interopmed.com",
+  ]
 
+CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL", "0") in {"1", "true", "True"}
 CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CSRF_TRUSTED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000,https://shin.interopmed.com,https://interopmed.com",
+    ).split(",")
+    if origin.strip()
+]

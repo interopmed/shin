@@ -389,7 +389,7 @@ const AddNewAppointmentViewPage = () => {
         status: formData.status,
       });
 
-      router.push('/appointment');
+      router.push('/scheduling/appointment');
     } catch (error) {
       console.error('Failed to create appointment:', error);
       alert('Failed to create appointment. Please try again.');
@@ -405,7 +405,7 @@ const AddNewAppointmentViewPage = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Appointment Form</h3>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <Link href="/appointment" className="button secondary">
+              <Link href="/scheduling/appointment" className="button secondary">
                 Back
               </Link>
               <button type="submit" className="button primary" disabled={loadingInit || submitting}>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
+import { canAccess, createActiveUserFromToken } from '@/lib/permissions';
 
 type StockItem = {
   id: number;
@@ -27,9 +28,12 @@ const StocksPage = () => {
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
 
+  const activeUser = createActiveUserFromToken(user || undefined);
+  const hasAccess = canAccess(activeUser, ['pharmacy.read']);
+
   useEffect(() => {
     const fetchStocks = async () => {
-      if (!user?.token) {
+      if (!user?.token || !hasAccess) {
         setLoading(false);
         return;
       }
@@ -60,7 +64,22 @@ const StocksPage = () => {
     };
 
     fetchStocks();
-  }, [user?.token, page]);
+  }, [user?.token, page, hasAccess]);
+
+  if (!hasAccess) {
+    return (
+      <section className="mpi-page">
+        <div className="mpi-card" style={{ padding: '3rem', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
+            Access Restricted
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '0.875rem' }}>
+            Your role does not have permission to view pharmacy inventory.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="mpi-page">

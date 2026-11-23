@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
-import { SearchableSelect } from '@/components/SearchableSelect';
 
 interface Department {
   id: number;
@@ -44,11 +43,23 @@ const AddEmployeePage = () => {
   const [loadingDepartments, setLoadingDepartments] = useState(true);
   const [loadingDesignations, setLoadingDesignations] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [userSearch, setUserSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const loadNextEmployeeId = async () => {
+      try {
+        const res = await fetch('/api/employees/employees/', {
+          headers: { "Authorization": `Bearer ${user?.token}` }
+        });
+        const data = await res.json();
+        const count = data.count || 0;
+        setForm(prev => ({ ...prev, employee_id: `EMP-${(count + 101).toString().padStart(4, '0')}` }));
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
     const loadDepartments = async () => {
       if (!user?.token) {
         setLoadingDepartments(false);
@@ -64,7 +75,7 @@ const AddEmployeePage = () => {
         setLoadingDepartments(false);
       }
     };
-    
+
     const loadDesignations = async () => {
       if (!user?.token) {
         setLoadingDesignations(false);
@@ -80,30 +91,14 @@ const AddEmployeePage = () => {
       }
     };
 
-    loadDepartments();
-    loadDesignations();
-  }, [user]);
-
-  useEffect(() => {
     const loadUsers = async () => {
       if (!user?.token) {
         setUsers([]);
         return;
       }
-
       setLoadingUsers(true);
       try {
-        const params: Record<string, string> = {
-          ordering: 'username',
-          page_size: '10',
-        };
-
-        const term = userSearch.trim();
-        if (term) {
-          params.search = term;
-        }
-
-        const response = await api.getUsers(user.token, params);
+        const response = await api.getUsers(user.token, { ordering: 'username', page_size: '50' });
         setUsers(Array.isArray(response) ? response : []);
       } catch {
         setUsers([]);
@@ -112,8 +107,13 @@ const AddEmployeePage = () => {
       }
     };
 
-    loadUsers();
-  }, [user, userSearch]);
+    if (user?.token) {
+      loadDepartments();
+      loadDesignations();
+      loadUsers();
+      loadNextEmployeeId();
+    }
+  }, [user]);
 
   const getUserLabel = (item: UserOption) => {
     const fullName = item.full_name || `${item.first_name || ''} ${item.last_name || ''}`.trim();
@@ -147,7 +147,7 @@ const AddEmployeePage = () => {
 
     try {
       await api.createEmployee(user.token, {
-        user: Number(form.user),
+        user: form.user ? Number(form.user) : null,
         employee_id: form.employee_id.trim(),
         department: form.department ? Number(form.department) : null,
         designation: form.designation ? Number(form.designation) : null,
@@ -167,182 +167,167 @@ const AddEmployeePage = () => {
   };
 
   return (
-    <div className="stack" style={{ gap: '24px' }}>
-      <div className="page-header">
-        <div className="stack" style={{ gap: '8px' }}>
-          <div style={{ display: 'flex', gap: '8px', fontSize: '14px', color: 'var(--text-tertiary)' }}>
-            <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }}>Home</Link>
-            <span>/</span>
-            <Link href="/human-resources/employees" style={{ color: 'inherit', textDecoration: 'none' }}>Employees</Link>
-            <span>/</span>
-            <span>Add</span>
+    <section className="mpi-page">
+      <div className="mpi-card">
+        <header className="mpi-header">
+          <div>
+            <h1>Add Employee</h1>
+            <p style={{ color: '#667085', fontSize: '13px', fontWeight: 700, margin: '5px 0 0' }}>
+              Create a new staff profile
+            </p>
           </div>
-          <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Add Employee</h1>
-        </div>
-      </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <Link className="mpi-select-button" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }} href="/human-resources/employees">
+              Cancel
+            </Link>
+          </div>
+        </header>
 
-      <div className="panel" style={{ padding: '32px' }}>
-        <form onSubmit={handleSubmit} className="stack" style={{ gap: '24px' }}>
-          {error && (
-            <div style={{ padding: '12px 16px', backgroundColor: '#fef2f2', color: '#dc2626', borderRadius: 'var(--radius-md)', border: '1px solid #f87171' }}>
-              {error}
-            </div>
-          )}
+        <div style={{ padding: '24px' }}>
+          <form onSubmit={handleSubmit} className="patient-create-form" style={{ border: 'none', boxShadow: 'none', padding: 0 }}>
+            {error && <p className="patient-form-error" style={{ marginBottom: '16px' }}>{error}</p>}
 
-          <div className="form-grid">
-            <div className="field">
-              <label>User ID *</label>
-              <input
-                type="number"
-                min={1}
-                name="user"
-                value={form.user}
-                onChange={handleChange}
-                required
-              />
-              <small style={{ color: 'var(--text-tertiary)', marginTop: '4px', display: 'block', fontSize: '13px' }}>
-                Enter existing auth user ID.
-              </small>
-            </div>
+            <div className="patient-form-grid">
+              <label>
+                Employee ID (Auto-Assigned)
+                <input
+                  type="text"
+                  name="employee_id"
+                  value={form.employee_id}
+                  disabled
+                  style={{ backgroundColor: '#f8fafc', color: '#64748b' }}
+                />
+              </label>
 
-            <div className="field">
-              <label>Search User (Optional)</label>
-              <input
-                type="text"
-                placeholder="Search by name, username or email"
-                value={userSearch}
-                onChange={(event) => setUserSearch(event.target.value)}
-              />
-              <small style={{ color: 'var(--text-tertiary)', marginTop: '4px', display: 'block', fontSize: '13px' }}>
-                You can search and select a user to auto-fill User ID.
-              </small>
-            </div>
+              <label>
+                Link System User (Optional)
+                <select
+                  value={form.user}
+                  onChange={(event) => setForm((prev) => ({ ...prev, user: event.target.value }))}
+                  disabled={loadingUsers}
+                >
+                  <option value="">{loadingUsers ? 'Loading users...' : 'Select a user'}</option>
+                  {users.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {getUserLabel(item)}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <div className="field">
-              <label>Select User (Optional)</label>
-              <select
-                value={form.user}
-                onChange={(event) => setForm((prev) => ({ ...prev, user: event.target.value }))}
-                disabled={loadingUsers}
-              >
-                <option value="">{loadingUsers ? 'Loading users...' : 'Select a user'}</option>
-                {users.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {getUserLabel(item)}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <label>
+                Department
+                <select
+                  name="department"
+                  value={form.department}
+                  onChange={handleChange}
+                  disabled={loadingDepartments}
+                >
+                  <option value="">Select Department</option>
+                  {departments.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <div className="field">
-              <label>Employee ID *</label>
-              <input
-                type="text"
-                name="employee_id"
-                value={form.employee_id}
-                onChange={handleChange}
-                required
-              />
-            </div>
+              <label>
+                Designation
+                <select
+                  name="designation"
+                  value={form.designation}
+                  onChange={handleChange}
+                  disabled={loadingDesignations}
+                >
+                  <option value="">Select Designation</option>
+                  {designations.map((designation) => (
+                    <option key={designation.id} value={designation.id}>
+                      {designation.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <div className="field">
-              <label>Department</label>
-              <select
-                name="department"
-                value={form.department}
-                onChange={handleChange}
-                disabled={loadingDepartments}
-              >
-                <option value="">Select Department</option>
-                {departments.map((department) => (
-                  <option key={department.id} value={department.id}>{department.name}</option>
-                ))}
-              </select>
-            </div>
+              <label>
+                Employment Type
+                <select
+                  name="employment_type"
+                  value={form.employment_type}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="full_time">Full Time</option>
+                  <option value="part_time">Part Time</option>
+                  <option value="contract">Contract</option>
+                  <option value="intern">Intern</option>
+                </select>
+              </label>
 
-            <div className="field">
-              <label>Designation *</label>
-              <SearchableSelect
-                options={designations}
-                value={form.designation}
-                onChange={(val) => setForm((prev) => ({ ...prev, designation: String(val) }))}
-                placeholder={loadingDesignations ? 'Loading...' : 'Select Designation'}
-                disabled={loadingDesignations}
-              />
-            </div>
+              <label>
+                Date of Joining
+                <input
+                  type="date"
+                  name="date_of_joining"
+                  value={form.date_of_joining}
+                  onChange={handleChange}
+                />
+              </label>
 
-            <div className="field">
-              <label>Employment Type *</label>
-              <select
-                name="employment_type"
-                value={form.employment_type}
-                onChange={handleChange}
-                required
-              >
-                <option value="full_time">Full Time</option>
-                <option value="part_time">Part Time</option>
-                <option value="contract">Contract</option>
-                <option value="intern">Intern</option>
-              </select>
-            </div>
+              <label style={{ gridColumn: '1 / -1' }}>
+                Address
+                <textarea
+                  name="address"
+                  value={form.address}
+                  onChange={handleChange}
+                  rows={2}
+                />
+              </label>
 
-            <div className="field">
-              <label>Date of Joining</label>
-              <input
-                type="date"
-                name="date_of_joining"
-                value={form.date_of_joining}
-                onChange={handleChange}
-              />
-            </div>
+              <label>
+                Emergency Contact
+                <input
+                  type="text"
+                  name="emergency_contact"
+                  value={form.emergency_contact}
+                  onChange={handleChange}
+                />
+              </label>
 
-            <div className="field">
-              <label>Emergency Contact</label>
-              <input
-                type="text"
-                name="emergency_contact"
-                value={form.emergency_contact}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="field" style={{ gridColumn: '1 / -1' }}>
-              <label>Address</label>
-              <textarea
-                name="address"
-                rows={3}
-                value={form.address}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="field" style={{ gridColumn: '1 / -1' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'normal' }}>
+              <label style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   name="is_active"
                   checked={form.is_active}
                   onChange={handleChange}
-                  style={{ width: 'auto' }}
+                  style={{ width: 'auto', minHeight: 'auto' }}
                 />
-                Active
+                Active Employee
               </label>
             </div>
-          </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }}>
-            <Link href="/human-resources/employees" className="button secondary">
-              Cancel
-            </Link>
-            <button type="submit" className="button primary" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Employee'}
-            </button>
-          </div>
-        </form>
+            <div className="patient-form-actions" style={{ marginTop: '24px' }}>
+              <button
+                type="button"
+                className="facility-secondary-button"
+                onClick={() => router.push('/human-resources/employees')}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="facility-primary-button"
+                disabled={saving}
+              >
+                {saving ? 'Creating...' : 'Create Employee'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </section>
   );
 };
 
 export default AddEmployeePage;
-

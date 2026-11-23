@@ -116,15 +116,12 @@ export const roleProfiles: Record<EHRRole, Omit<ActiveUserContext, "role">> = {
     ],
   },
 
-  // Nurse — PHI scoped to patient care delivery for assigned patients
+  // Nurse — PHI scoped to patient care delivery for assigned ward/unit patients
   "nurse": {
     userId: "user-nurse",
     displayName: "Nurse",
     permissions: [
       "phi.read",
-      "patient.read", "patient.write",
-      "pharmacy.read",
-      "scheduling.read",
       "ward.read",
       "provider.read",
     ],
@@ -140,27 +137,24 @@ export const roleProfiles: Record<EHRRole, Omit<ActiveUserContext, "role">> = {
     ],
   },
 
-  // Pharmacist — prescription + patient demographics for medication safety
+  // Pharmacist — prescription dispensing and stock management
   "pharmacist": {
     userId: "user-pharmacist",
     displayName: "Pharmacist",
     permissions: [
-      "phi.read",
-      "patient.read",
       "pharmacy.read", "pharmacy.write",
       "provider.read",
     ],
   },
 
-  // Radiologist — imaging orders + patient context, no clinical notes
+  // Radiologist — imaging orders, reports, and diagnostic studies
   "radiologist": {
     userId: "user-radiologist",
     displayName: "Radiologist",
     permissions: [
-      "phi.read",
-      "patient.read",
       "imaging.read",
-      "scheduling.read",
+      "imaging.write",
+      "imaging.review",
       "provider.read",
     ],
   },
@@ -219,7 +213,6 @@ export const roleProfiles: Record<EHRRole, Omit<ActiveUserContext, "role">> = {
       "phi.read",
       "patient.read",
       "ward.read", "ward.manage",
-      "scheduling.read", "scheduling.write",
       "staff.read",
       "provider.read",
       "facility.read",

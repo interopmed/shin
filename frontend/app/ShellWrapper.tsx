@@ -19,7 +19,7 @@ export default function ShellWrapper({
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
 
-  const isPublic = PUBLIC_PATHS.includes(pathname);
+  const isPublic = Boolean(pathname && PUBLIC_PATHS.includes(pathname));
 
   useEffect(() => {
     // Once auth check completes, if user is not authenticated and not on a public page, redirect

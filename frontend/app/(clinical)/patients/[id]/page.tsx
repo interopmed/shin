@@ -6,7 +6,7 @@ import PatientProfilePage from '../profile/[id]/page';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 
-import { ASSIGNED_PATIENTS } from '../../unit/page';
+import { ASSIGNED_PATIENTS } from '@/lib/clinical-mock-data';
 
 export default function UnifiedPatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);

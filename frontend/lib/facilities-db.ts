@@ -158,6 +158,10 @@ export type ServiceUnitRecord = {
   facility_id?: string;
   current_patients?: number;
   staff?: string[];
+  sub_units?: ServiceUnitRecord[];
+  parent_id?: string;
+  snomed_unit_type?: { code?: string; display?: string };
+  snomed_department?: { code?: string; display?: string };
 };
 
 export async function getServiceUnits(facilityId?: string): Promise<ServiceUnitRecord[]> {

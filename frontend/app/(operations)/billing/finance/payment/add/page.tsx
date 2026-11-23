@@ -317,7 +317,7 @@ const AddPaymentPage = () => {
 
       try {
         const orderId = labOrderIdParam || rawId;
-        const order = await api.getLabTest(user.token, orderId);
+        const order: any = await api.getLabTest(user.token, orderId);
         const patientId = order?.patient || order?.patient_id || '';
         const doctorId = order?.doctor || order?.doctor_id || '';
         const referringMethod: ReferringMethod = doctorId ? 'doctor' : 'self_request';

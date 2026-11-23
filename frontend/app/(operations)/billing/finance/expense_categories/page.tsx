@@ -65,8 +65,10 @@ const ExpenseCategoriesPage = () => {
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
-    const { name, value, type, checked } = e.target;
-    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    const target = e.target;
+    const name = target.name;
+    const val = target instanceof HTMLInputElement && target.type === 'checkbox' ? target.checked : target.value;
+    setForm((prev) => ({ ...prev, [name]: val }));
     setError('');
     setSuccess('');
   };

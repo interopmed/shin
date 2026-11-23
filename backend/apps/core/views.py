@@ -8,6 +8,7 @@ from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status, viewsets
+from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -35,6 +36,8 @@ from .models import (
   ServiceUnit,
   TerminologyConcept,
   Bed,
+  ClinicalFirm,
+  FirmWardCoverage,
 )
 from .serializers import (
   DoctorSerializer,
@@ -46,6 +49,8 @@ from .serializers import (
   ServiceUnitSerializer,
   TerminologyConceptSerializer,
   BedSerializer,
+  ClinicalFirmSerializer,
+  FirmWardCoverageSerializer,
 )
 from .permissions import HasFacilityManagePermission, RequirePermission
 
@@ -546,8 +551,20 @@ class PatientConsentView(APIView):
     return self.patch(request, patient_id)
 
 
+class HasMpiPermission(BasePermission):
+  def has_permission(self, request, view):
+    if request.user and request.user.is_authenticated:
+      if request.user.is_superuser:
+        return True
+      from apps.authentication import get_identity_role
+      role = (get_identity_role(request.user.username) or "").lower()
+      if role in ["ward-manager", "user-ward", "ward_manager", "ward manager"]:
+        return False
+    return True
+
+
 class MpiView(APIView):
-  permission_classes = [RequirePermission("patient.read")]
+  permission_classes = [HasMpiPermission]
 
   def get(self, request):
     page = int(request.query_params.get("page", 1))
@@ -1417,9 +1434,38 @@ class AuditEventDetailView(APIView):
         return Response({"detail": "Audit event deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 
+class HasPhiReadPermission(BasePermission):
+    def has_permission(self, request, view):
+        if request.user and request.user.is_authenticated:
+            if request.user.is_superuser:
+                return True
+            from apps.authentication import get_identity_role
+            from apps.core.rbac import get_permissions_for_role
+            role = get_identity_role(request.user.username)
+            perms = get_permissions_for_role(role or "User")
+            if "phi.read" not in perms:
+                return False
+        return True
+
+
 class CareTeamViewSet(viewsets.ModelViewSet):
     queryset = CareTeam.objects.all().order_by("name", "id")
     serializer_class = CareTeamSerializer
+    permission_classes = [HasPhiReadPermission]
+
+class ServiceUnitViewSet(viewsets.ModelViewSet):
+    queryset = ServiceUnit.objects.all().order_by('id')
+    serializer_class = ServiceUnitSerializer
+    permission_classes = []
+
+class ClinicalFirmViewSet(viewsets.ModelViewSet):
+    queryset = ClinicalFirm.objects.all().order_by('id')
+    serializer_class = ClinicalFirmSerializer
+    permission_classes = []
+
+class FirmWardCoverageViewSet(viewsets.ModelViewSet):
+    queryset = FirmWardCoverage.objects.all().order_by('id')
+    serializer_class = FirmWardCoverageSerializer
     permission_classes = []
 
     def _normalize_id(self, val):
@@ -1496,7 +1542,7 @@ class TerminologyConceptViewSet(viewsets.ReadOnlyModelViewSet):
 class CareTeamNoteViewSet(viewsets.ModelViewSet):
     queryset = CareTeamNote.objects.all().order_by("-created_at", "-id")
     serializer_class = CareTeamNoteSerializer
-    permission_classes = []
+    permission_classes = [HasPhiReadPermission]
 
 
 class ProviderDirectoryView(APIView):

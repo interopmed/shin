@@ -43,9 +43,6 @@ ROLE_PROFILES = {
     ],
     "nurse": [
         "phi.read",
-        "patient.read", "patient.write",
-        "pharmacy.read",
-        "scheduling.read",
         "ward.read",
         "provider.read",
     ],
@@ -54,16 +51,13 @@ ROLE_PROFILES = {
         "lab.read", "lab.write", "lab.review",
     ],
     "pharmacist": [
-        "phi.read",
-        "patient.read",
         "pharmacy.read", "pharmacy.write",
         "provider.read",
     ],
     "radiologist": [
-        "phi.read",
-        "patient.read",
         "imaging.read",
-        "scheduling.read",
+        "imaging.write",
+        "imaging.review",
         "provider.read",
     ],
     "front-desk": [
@@ -91,7 +85,6 @@ ROLE_PROFILES = {
         "phi.read",
         "patient.read",
         "ward.read", "ward.manage",
-        "scheduling.read", "scheduling.write",
         "staff.read",
         "provider.read",
         "facility.read",

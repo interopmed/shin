@@ -90,9 +90,8 @@ const roleQuickActions: Partial<Record<EHRRole, QuickAction[]>> = {
   ],
   "nurse": [
     { label: "Ward dashboard", href: "/ward" },
-    { label: "Patient list", href: "/patients" },
+    { label: "My Unit", href: "/unit" },
     { label: "Lab results", href: "/lab/reports" },
-    { label: "Prescriptions", href: "/prescriptions" },
     { label: "Appointments", href: "/scheduling/appointment" },
   ],
   "lab-technician": [
@@ -137,7 +136,7 @@ const roleQuickActions: Partial<Record<EHRRole, QuickAction[]>> = {
 const roleHeroActions: Partial<Record<EHRRole, { label: string; href: string; primary?: boolean }[]>> = {
   "system-admin": [{ label: "Audit log", href: "/foundation/audit", primary: true }, { label: "Identity & Access", href: "/foundation/identitywork" }],
   "doctor": [{ label: "Patient list", href: "/patients", primary: true }, { label: "Ward dashboard", href: "/ward" }],
-  "nurse": [{ label: "Ward dashboard", href: "/ward", primary: true }, { label: "Patient list", href: "/patients" }],
+  "nurse": [{ label: "Ward dashboard", href: "/ward", primary: true }, { label: "My Unit", href: "/unit" }],
   "lab-technician": [{ label: "Orders queue", href: "/lab/orders", primary: true }, { label: "Lab results", href: "/lab/reports" }],
   "pharmacist": [{ label: "Prescriptions", href: "/prescriptions", primary: true }, { label: "Inventory", href: "/stocks" }],
   "radiologist": [{ label: "Appointments", href: "/scheduling/appointment", primary: true }, { label: "Patient list", href: "/patients" }],
@@ -158,7 +157,7 @@ function getRoleReadiness(role: EHRRole, eventCount: number): ReadinessItem[] {
   switch (role) {
     case "system-admin": return [...base, { label: "Identity config", done: true, value: "Configured" }, { label: "Audit stream", done: eventCount > 0, value: `${eventCount} events` }];
     case "doctor": return [...base, { label: "Patient access", done: true, value: "Available" }, { label: "Lab integration", done: true, value: "Connected" }];
-    case "nurse": return [...base, { label: "Ward access", done: true, value: "Available" }, { label: "Med orders", done: true, value: "Active" }];
+    case "nurse": return [...base, { label: "Ward access", done: true, value: "Available" }, { label: "Patient queue", done: true, value: "Active" }];
     case "lab-technician": return [...base, { label: "Lab orders queue", done: true, value: "Ready" }, { label: "Result entry", done: true, value: "Active" }];
     case "pharmacist": return [...base, { label: "Prescription queue", done: true, value: "Ready" }, { label: "Inventory", done: true, value: "Stocked" }];
     case "radiologist": return [...base, { label: "Imaging queue", done: true, value: "Ready" }, { label: "Report system", done: true, value: "Active" }];

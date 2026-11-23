@@ -5,9 +5,12 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 
 type AuthUser = {
+  id?: number | string;
   token: string;
   role: string;
   username: string;
+  display_name?: string;
+  email?: string;
   scope?: {
     unit_ids: number[];
     department: string | null;

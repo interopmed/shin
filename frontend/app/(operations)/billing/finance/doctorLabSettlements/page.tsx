@@ -59,7 +59,7 @@ const todayStr = today.toISOString().slice(0, 10);
 const DoctorLabSettlementsPage = () => {
   const { user } = useAuth();
   const searchParams = useSearchParams();
-  const doctorId = searchParams.get('doctor');
+  const doctorId = searchParams?.get('doctor');
 
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -248,18 +248,18 @@ const DoctorLabSettlementsPage = () => {
 
         if (!initializedRange) {
           const earliestPayment = paymentResp.rows
-            .map((p) => p.payment_date)
+            .map((p: any) => p.payment_date)
             .filter(Boolean)
-            .map((d) => new Date(d as string))
-            .filter((d) => !Number.isNaN(d.getTime()))
-            .sort((a, b) => a.getTime() - b.getTime())[0];
+            .map((d: any) => new Date(d as string))
+            .filter((d: Date) => !Number.isNaN(d.getTime()))
+            .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0];
 
           const earliestSettlement = settlementResp.rows
-            .map((s) => s.date)
+            .map((s: any) => s.date)
             .filter(Boolean)
-            .map((d) => new Date(d as string))
-            .filter((d) => !Number.isNaN(d.getTime()))
-            .sort((a, b) => a.getTime() - b.getTime())[0];
+            .map((d: any) => new Date(d as string))
+            .filter((d: Date) => !Number.isNaN(d.getTime()))
+            .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0];
 
           const earliest = [earliestPayment, earliestSettlement]
             .filter(Boolean)

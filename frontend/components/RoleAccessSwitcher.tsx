@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type RoleAccessSwitcherProps = {
-  activeRole: ActiveUserRole;
+  activeRole: string;
 };
 
 type ActiveUserRole = "administrator" | "clinician" | "lab-manager" | "front-desk" | "auditor";

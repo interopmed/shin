@@ -27,13 +27,13 @@ export function getNavigationGroups(user: ActiveUserContext): NavigationGroup[] 
   });
 
   // ── Patients ──────────────────────────────────────────────────────────────
-  // patient.read required; phi.read unlocks MPI (full identity graph)
+  // patient.read required; phi.read (excluding ward-manager) unlocks MPI (enterprise identity graph)
   if (canAccess(user, ["patient.read"])) {
     groups.push({
       label: "Patients",
       items: [
         { label: "Patient List", href: "/patients", detail: "Active patient records", icon: "users" },
-        ...(canAccess(user, ["phi.read"])
+        ...(canAccess(user, ["phi.read"]) && user.role !== "ward-manager"
           ? [{ label: "Master Patient Index", href: "/patients/mpi", detail: "Enterprise identity", icon: "activity" }]
           : []),
       ],
@@ -78,6 +78,19 @@ export function getNavigationGroups(user: ActiveUserContext): NavigationGroup[] 
     groups.push({
       label: "Laboratory",
       items: labItems,
+    });
+  }
+
+  // ── Radiology ─────────────────────────────────────────────────────────────
+  if (canAccess(user, ["imaging.read"])) {
+    const imagingItems = [
+      { label: "Requested Studies", href: "/radiology/requested", detail: "Worklist & pending scans", icon: "imaging" },
+      { label: "Completed Results", href: "/radiology/results", detail: "Reports & imaging archive", icon: "file" },
+    ];
+
+    groups.push({
+      label: "Radiology",
+      items: imagingItems,
     });
   }
 

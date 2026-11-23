@@ -188,7 +188,9 @@ class APIService {
     const queryString = params ? `?${new URLSearchParams(params)}` : '';
     const response = await this.request<any>(`/api/patients/${queryString}`, { token });
     // Handle paginated response from Django REST Framework
-    return response.results || response;
+    if (Array.isArray(response?.results)) return response.results;
+    if (Array.isArray(response)) return response;
+    return [];
   }
 
   async getPatientsPaginated(token: string, params?: any) {
@@ -844,13 +846,6 @@ class APIService {
     });
   }
 
-  async deleteEmployee(token: string, id: number | string) {
-    return this.request(`/api/employees/employees/${id}/`, {
-      method: 'DELETE',
-      token,
-    });
-  }
-
   async getEmployeeDepartments(token: string, params?: Record<string, string>) {
     const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
     const response = await this.request<any>(`/api/employees/departments/${queryString}`, { token });
@@ -935,7 +930,52 @@ class APIService {
       body: JSON.stringify(data),
     });
   }
+
+  // Radiology / Imaging
+  async getImagingRequests(token?: string, params?: Record<string, string>) {
+    const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
+    const response = await this.request<any>(`/api/imaging-requests/${queryString}`, { token });
+    if (Array.isArray(response?.results)) return response.results;
+    if (Array.isArray(response)) return response;
+    return [];
+  }
+
+  async getImagingRequestById(id: number | string, token?: string) {
+    return this.request<any>(`/api/imaging-requests/${id}/`, { token });
+  }
+
+  async createImagingRequest(data: any, token?: string) {
+    return this.request('/api/imaging-requests/', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateImagingRequest(id: number | string, data: any, token?: string) {
+    return this.request(`/api/imaging-requests/${id}/`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
+    });
+  }
+
+  async completeImagingStudy(id: number | string, data: { findings: string; impression: string; radiologist_name?: string; notes?: string }, token?: string) {
+    return this.request(`/api/imaging-requests/${id}/complete_study/`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    });
+  }
+
+  async startImagingScan(id: number | string, token?: string) {
+    return this.request(`/api/imaging-requests/${id}/start_scan/`, {
+      method: 'POST',
+      token,
+    });
+  }
 }
 
 export const api = new APIService(API_BASE_URL);
 export default api;
+

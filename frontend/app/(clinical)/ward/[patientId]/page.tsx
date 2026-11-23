@@ -4,8 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Patient, Admission, PatientMedication } from '../../../../types/patient';
 import { SearchableSelect } from '../../../../components/SearchableSelect';
-import { WARD_PATIENTS } from '../page';
-import { ASSIGNED_PATIENTS } from '../../unit/page';
+import { WARD_PATIENTS, ASSIGNED_PATIENTS } from '@/lib/clinical-mock-data';
 
 // MOCK API
 const mockFetchPatient = async (id: string): Promise<{ patient: Patient, admission: Admission | null }> => {
@@ -126,6 +125,10 @@ export default function PatientDetailScreen({ params }: { params: Promise<{ pati
   const [dbMedications, setDbMedications] = useState<{id: string, name: string}[]>([]);
   const [dbLabs, setDbLabs] = useState<{id: string, name: string}[]>([]);
   const [dbServiceUnits, setDbServiceUnits] = useState<{id: string, name: string}[]>([]);
+  const [dbFirms, setDbFirms] = useState<any[]>([]);
+  const [dbCoverages, setDbCoverages] = useState<any[]>([]);
+  const [admitDept, setAdmitDept] = useState('');
+  const [admitFirm, setAdmitFirm] = useState('');
 
   useEffect(() => {
     // Fetch Lab Categories
@@ -186,6 +189,17 @@ export default function PatientDetailScreen({ params }: { params: Promise<{ pati
           { id: '3', name: 'Cardiology Department' },
         ]);
       });
+
+    // Fetch Clinical Firms and Coverages
+    fetch('http://localhost:8000/api/clinical-firms/')
+      .then(res => res.json())
+      .then(data => setDbFirms(Array.isArray(data) ? data : (data.results || [])))
+      .catch(e => console.error(e));
+
+    fetch('http://localhost:8000/api/firm-ward-coverages/')
+      .then(res => res.json())
+      .then(data => setDbCoverages(Array.isArray(data) ? data : (data.results || [])))
+      .catch(e => console.error(e));
   }, []);
 
   const dbImaging = [
@@ -207,7 +221,16 @@ export default function PatientDetailScreen({ params }: { params: Promise<{ pati
     setTimeout(() => {
       if (activeModal === 'admit_confirm') {
         const generatedBht = `BHT-${Math.floor(Math.random() * 10000)}`;
+        const bedInput = (document.getElementById('admit-room') as HTMLInputElement)?.value || 'Pending Assignment';
+        const notesInput = (document.getElementById('admit-notes') as HTMLTextAreaElement)?.value || '';
         
+        // Auto-assign firm if exclusive
+        let selectedFirm = admitFirm;
+        const coverage = dbCoverages.find(c => String(c.unit) === admitDept);
+        if (coverage && coverage.is_exclusive && coverage.firm) {
+           selectedFirm = String(coverage.firm.id);
+        }
+
         // Save to actual database table (patients_admission)
         fetch('http://localhost:8000/api/admissions/', {
           method: 'POST',
@@ -217,8 +240,11 @@ export default function PatientDetailScreen({ params }: { params: Promise<{ pati
           body: JSON.stringify({
             patient: patientData?.id,
             bht: generatedBht,
-            bed: 'Pending Assignment',
-            status: 'admitted'
+            bed: bedInput,
+            unit_id: admitDept ? parseInt(admitDept, 10) : null,
+            firm: selectedFirm ? parseInt(selectedFirm, 10) : null,
+            status: 'admitted',
+            notes: notesInput
           })
         })
         .then(res => {
@@ -238,7 +264,7 @@ export default function PatientDetailScreen({ params }: { params: Promise<{ pati
           id: `adm-${Math.floor(Math.random() * 1000)}`,
           patient_id: patientData?.id.toString() || '',
           bht: generatedBht,
-          bed: 'Pending Assignment',
+          bed: bedInput,
           created_at: new Date().toISOString(),
         });
         setPatientData(prev => prev ? { ...prev, status: 'admitted' } : null);
@@ -602,12 +628,6 @@ export default function PatientDetailScreen({ params }: { params: Promise<{ pati
             </div>
           </div>
 
-
-        </div>
-
-        {/* Center Column: Core Medical Data (Meds, Labs, Diagnosis) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
           <div className="mpi-card">
             <div style={{ padding: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -665,6 +685,8 @@ export default function PatientDetailScreen({ params }: { params: Promise<{ pati
               )}
             </div>
           </div>
+
+
 
           <div className="mpi-card">
             <div style={{ padding: '20px' }}>
@@ -797,6 +819,7 @@ export default function PatientDetailScreen({ params }: { params: Promise<{ pati
             </div>
           </div>
 
+
           <div className="mpi-card">
             <div style={{ padding: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -834,123 +857,103 @@ export default function PatientDetailScreen({ params }: { params: Promise<{ pati
             </div>
           </div>
 
+        </div>
+
+        {/* Center Column: Core Medical Data (Meds, Labs, Diagnosis) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
         {/* Center & Right Column Combined */}
 
           <div className="mpi-card">
             <div style={{ padding: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h2 style={{ fontSize: '18px', margin: 0, color: '#0f172a' }}>Clinical Notes</h2>
-                <button
-                  className="button compact secondary"
-                  onClick={() => {
-                    if (isEditingNotes) {
-                      if (patientData) {
-                        const updatedPatient = { ...patientData, clinical_notes: notesList.filter(n => n.trim()) };
-                        setPatientData(updatedPatient);
-                        localStorage.setItem(`patient_mock_v3_${patientData.id}`, JSON.stringify({ patient: updatedPatient, admission }));
-                      }
-                    }
-                    setIsEditingNotes(!isEditingNotes);
-                  }}
-                  style={{ color: isEditingNotes ? '#059669' : '#2563eb', borderColor: isEditingNotes ? '#10b981' : '#bfdbfe', backgroundColor: isEditingNotes ? '#ecfdf5' : '#eff6ff' }}
-                >
-                  {isEditingNotes ? 'Save' : 'Edit'}
-                </button>
-              </div>
-
-              {isEditingNotes ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {notesList.map((item, index) => (
-                    <textarea
-                      key={index}
-                      value={item}
-                      onChange={(e) => {
-                        const newList = [...notesList];
-                        newList[index] = e.target.value;
-                        setNotesList(newList);
-                      }}
-                      className="identity-select"
-                      style={{ padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', minHeight: '80px', fontFamily: 'inherit' }}
-                      placeholder={`Note ${index + 1}`}
-                    />
-                  ))}
+                {!isEditingNotes && (
                   <button
-                    onClick={() => setNotesList([...notesList, ''])}
-                    style={{ background: 'transparent', border: '1px dashed #cbd5e1', padding: '10px', borderRadius: '6px', color: '#64748b', cursor: 'pointer', fontWeight: 500 }}
+                    className="button compact secondary"
+                    onClick={() => setIsEditingNotes(true)}
+                    style={{ color: '#2563eb', borderColor: '#bfdbfe', backgroundColor: '#eff6ff' }}
                   >
                     + Add Note
                   </button>
+                )}
+              </div>
+
+              {isEditingNotes && (
+                <div style={{ marginBottom: '24px', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+                  <textarea
+                    id="new-note-input"
+                    className="identity-select"
+                    style={{ padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', minHeight: '100px', fontFamily: 'inherit', marginBottom: '12px' }}
+                    placeholder="Write a new clinical note..."
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                    <button
+                      className="button compact secondary"
+                      onClick={() => setIsEditingNotes(false)}
+                      style={{ color: '#64748b' }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="mpi-primary-button"
+                      style={{ padding: '6px 16px', fontSize: '14px', borderRadius: '6px', backgroundColor: '#0f172a' }}
+                      onClick={() => {
+                        const input = document.getElementById('new-note-input') as HTMLTextAreaElement;
+                        if (input && input.value.trim()) {
+                          const updatedNotes = [input.value.trim(), ...notesList];
+                          setNotesList(updatedNotes);
+                          if (patientData) {
+                            const updatedPatient = { ...patientData, clinical_notes: updatedNotes };
+                            setPatientData(updatedPatient);
+                            localStorage.setItem(`patient_mock_v3_${patientData.id}`, JSON.stringify({ patient: updatedPatient, admission }));
+                          }
+                          setIsEditingNotes(false);
+                        }
+                      }}
+                    >
+                      Save Note
+                    </button>
+                  </div>
                 </div>
-              ) : (
-                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {notesList.length === 0 ? <li style={{ color: '#94a3b8', fontStyle: 'italic' }}>No notes recorded.</li> : null}
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {notesList.length === 0 ? <div style={{ color: '#94a3b8', fontStyle: 'italic', padding: '30px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>No clinical notes recorded yet.</div> : null}
                   {notesList.map((item, index) => item.trim() && (
-                    <li key={index} style={{ color: '#1e293b', display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', borderLeft: '3px solid #cbd5e1' }}>
-                      <span style={{ lineHeight: '1.6', fontSize: '14px' }}>{item}</span>
-                    </li>
+                    <div key={index} style={{ 
+                      backgroundColor: '#ffffff', 
+                      borderRadius: '12px', 
+                      padding: '20px', 
+                      boxShadow: '0 4px 15px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.04)',
+                      border: '1px solid #e2e8f0',
+                      borderLeft: '5px solid #3b82f6',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#eff6ff', color: '#2563eb', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: '700', fontSize: '14px' }}>
+                            MD
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '14px' }}>Attending Physician</div>
+                            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Internal Medicine</div>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+                          {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                      <div style={{ color: '#334155', lineHeight: '1.7', fontSize: '15px', whiteSpace: 'pre-wrap' }}>
+                        {item}
+                      </div>
+                    </div>
                   ))}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          <div className="mpi-card">
-            <div style={{ padding: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 style={{ fontSize: '18px', margin: 0, color: '#0f172a' }}>Routine Notes</h2>
-                <button
-                  className="button compact secondary"
-                  onClick={() => {
-                    if (isEditingRoutineNotes) {
-                      if (patientData) {
-                        const updatedPatient = { ...patientData, routine_notes: routineNotesList.filter(n => n.trim()) };
-                        setPatientData(updatedPatient);
-                        localStorage.setItem(`patient_mock_v3_${patientData.id}`, JSON.stringify({ patient: updatedPatient, admission }));
-                      }
-                    }
-                    setIsEditingRoutineNotes(!isEditingRoutineNotes);
-                  }}
-                  style={{ color: isEditingRoutineNotes ? '#059669' : '#2563eb', borderColor: isEditingRoutineNotes ? '#10b981' : '#bfdbfe', backgroundColor: isEditingRoutineNotes ? '#ecfdf5' : '#eff6ff' }}
-                >
-                  {isEditingRoutineNotes ? 'Save' : 'Edit'}
-                </button>
-              </div>
-
-              {isEditingRoutineNotes ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {routineNotesList.map((item, index) => (
-                    <textarea
-                      key={index}
-                      value={item}
-                      onChange={(e) => {
-                        const newList = [...routineNotesList];
-                        newList[index] = e.target.value;
-                        setRoutineNotesList(newList);
-                      }}
-                      className="identity-select"
-                      style={{ padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', minHeight: '80px', fontFamily: 'inherit' }}
-                      placeholder={`Routine Note ${index + 1}`}
-                    />
-                  ))}
-                  <button
-                    onClick={() => setRoutineNotesList([...routineNotesList, ''])}
-                    style={{ background: 'transparent', border: '1px dashed #cbd5e1', padding: '10px', borderRadius: '6px', color: '#64748b', cursor: 'pointer', fontWeight: 500 }}
-                  >
-                    + Add Note
-                  </button>
                 </div>
-              ) : (
-                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {routineNotesList.length === 0 ? <li style={{ color: '#94a3b8', fontStyle: 'italic' }}>No routine notes recorded.</li> : null}
-                  {routineNotesList.map((item, index) => item.trim() && (
-                    <li key={index} style={{ color: '#1e293b', display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', borderLeft: '3px solid #cbd5e1' }}>
-                      <span style={{ lineHeight: '1.6', fontSize: '14px' }}>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
           </div>
+
+
 
         </div>
       </div>
@@ -1051,14 +1054,49 @@ export default function PatientDetailScreen({ params }: { params: Promise<{ pati
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <p style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>Are you sure you want to admit <strong>{patientData.name}</strong> to the ward?</p>
                   <div className="form-group">
-                    <label className="form-label">Admitting Department</label>
-                    <select className="form-input" required>
-                      <option value="">Select a department...</option>
+                    <label className="form-label">Admitting Department / Ward</label>
+                    <select 
+                      className="form-input" 
+                      id="admit-dept" 
+                      required 
+                      value={admitDept}
+                      onChange={(e) => {
+                        setAdmitDept(e.target.value);
+                        setAdmitFirm(''); // Reset firm selection when ward changes
+                      }}
+                    >
+                      <option value="">Select a ward...</option>
                       {dbServiceUnits.map(unit => (
                         <option key={unit.id} value={unit.id}>{unit.name}</option>
                       ))}
                     </select>
                   </div>
+                  
+                  {/* Dynamic Firm Selection */}
+                  {admitDept && (
+                    dbCoverages.find(c => String(c.unit) === admitDept && c.is_exclusive) ? (
+                      <div className="form-group">
+                        <label className="form-label">Clinical Firm (Auto-assigned)</label>
+                        <input type="text" className="form-input" disabled value={dbCoverages.find(c => String(c.unit) === admitDept)?.firm?.name || 'Unknown'} style={{ backgroundColor: '#f8fafc', color: '#64748b' }} />
+                      </div>
+                    ) : (
+                      <div className="form-group">
+                        <label className="form-label">Clinical Firm / Consultant</label>
+                        <select className="form-input" required value={admitFirm} onChange={(e) => setAdmitFirm(e.target.value)}>
+                          <option value="">Select a consultant's unit...</option>
+                          {dbCoverages.filter(c => String(c.unit) === admitDept).map(c => (
+                            <option key={c.firm.id} value={c.firm.id}>{c.firm.name}</option>
+                          ))}
+                          {/* Fallback if no specific coverages are mapped, show all firms */}
+                          {dbCoverages.filter(c => String(c.unit) === admitDept).length === 0 && dbFirms.map(f => (
+                            <option key={f.id} value={f.id}>{f.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )
+                  )}
+                  <div className="form-group"><label className="form-label">Assign Room / Bed</label><input type="text" id="admit-room" placeholder="e.g. Ward A - Bed 12" className="form-input" required /></div>
+                  <div className="form-group"><label className="form-label">Admission Notes / Reason</label><textarea id="admit-notes" className="form-input" style={{ minHeight: '80px' }} placeholder="Provide relevant clinical info for admission..." required></textarea></div>
                   <div className="form-group"><label className="form-label">Priority</label><select className="form-input"><option>Routine</option><option>Urgent</option><option>Emergency</option></select></div>
                 </div>
               )}

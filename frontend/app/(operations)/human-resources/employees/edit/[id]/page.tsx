@@ -31,13 +31,8 @@ const EditEmployeePage = () => {
   const id = String(params?.id || '');
 
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [facilities, setFacilities] = useState<any[]>([]);
-  const [allUnits, setAllUnits] = useState<any[]>([]);
   const [designations, setDesignations] = useState<any[]>([]);
-  
   const [form, setForm] = useState(defaultForm);
-  const [selectedFacility, setSelectedFacility] = useState<string>('');
-  const [selectedUnits, setSelectedUnits] = useState<number[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,35 +50,14 @@ const EditEmployeePage = () => {
       setError('');
 
       try {
-        const [departmentsResponse, employee, facilitiesResponse, unitsResponse, assignedUnits, designationsResponse] = await Promise.all([
+        const [departmentsResponse, employee, designationsResponse] = await Promise.all([
           api.getEmployeeDepartments(user.token, { ordering: 'name' }),
           api.getEmployee(user.token, id),
-          api.getFacilities(user.token),
-          api.getServiceUnits(user.token),
-          api.getEmployeeUnits(user.token, id).catch(() => ({ units: [], facility: null })),
           api.getDesignations(user.token, { ordering: 'name' }).catch(() => []),
         ]);
 
         setDepartments(Array.isArray(departmentsResponse) ? departmentsResponse : []);
-        setFacilities(Array.isArray(facilitiesResponse) ? facilitiesResponse : []);
         setDesignations(Array.isArray(designationsResponse) ? designationsResponse : []);
-        const loadedUnits = Array.isArray(unitsResponse) ? unitsResponse : [];
-        setAllUnits(loadedUnits);
-        
-        const assignedData = assignedUnits || { units: [], facility: null };
-        const unitsArray = Array.isArray(assignedData.units) 
-            ? assignedData.units 
-            : (Array.isArray(assignedData) ? assignedData : []);
-        setSelectedUnits(unitsArray);
-
-        if (assignedData.facility) {
-           setSelectedFacility(String(assignedData.facility));
-        } else if (unitsArray.length > 0 && loadedUnits.length > 0) {
-           const firstUnit = loadedUnits.find(u => u.id === unitsArray[0]);
-           if (firstUnit && firstUnit.facility_id) {
-              setSelectedFacility(String(firstUnit.facility_id));
-           }
-        }
 
         setForm({
           user: employee?.user ? String(employee.user) : '',
@@ -117,14 +91,6 @@ const EditEmployeePage = () => {
 
     setForm((prev) => ({ ...prev, [name]: value }));
   };
-  
-  const handleUnitToggle = (unitId: number) => {
-    setSelectedUnits(prev => 
-      prev.includes(unitId) 
-        ? prev.filter(id => id !== unitId)
-        : [...prev, unitId]
-    );
-  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -150,11 +116,6 @@ const EditEmployeePage = () => {
         is_active: form.is_active,
       });
 
-      await api.updateEmployeeUnits(user.token, id, { 
-        units: selectedUnits,
-        facility: selectedFacility ? Number(selectedFacility) : null
-      });
-
       setShowSuccessModal(true);
     } catch (submitError: any) {
       setError(submitError?.message || 'Failed to update employee.');
@@ -162,10 +123,6 @@ const EditEmployeePage = () => {
       setSaving(false);
     }
   };
-  
-  const filteredUnits = selectedFacility 
-    ? allUnits.filter(u => String(u.facility_id) === selectedFacility)
-    : [];
 
   return (
     <div className="stack" style={{ gap: '24px' }}>
@@ -223,7 +180,6 @@ const EditEmployeePage = () => {
             </div>
 
 
-
             <div className="field">
               <label>Designation *</label>
               <SearchableSelect
@@ -268,53 +224,6 @@ const EditEmployeePage = () => {
                 onChange={handleChange}
               />
             </div>
-            
-            <div className="field" style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 600, borderBottom: '1px solid var(--line)', paddingBottom: '8px', marginBottom: '16px' }}>
-                Facility & Unit Assignment
-              </h3>
-            </div>
-            
-            <div className="field">
-              <label>Primary Facility</label>
-              <select
-                value={selectedFacility}
-                onChange={(e) => setSelectedFacility(e.target.value)}
-              >
-                <option value="">Select Facility</option>
-                {facilities.map((facility) => (
-                  <option key={facility.id} value={facility.id}>{facility.name}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="field" style={{ gridColumn: '1 / -1' }}>
-              <label>Assigned Units & Subunits</label>
-              {selectedFacility ? (
-                filteredUnits.length > 0 ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px', marginTop: '8px' }}>
-                    {filteredUnits.map(unit => (
-                      <label key={unit.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid var(--line)', borderRadius: '6px', cursor: 'pointer', background: selectedUnits.includes(unit.id) ? 'var(--primary-light)' : 'transparent' }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedUnits.includes(unit.id)}
-                          onChange={() => handleUnitToggle(unit.id)}
-                          style={{ width: 'auto' }}
-                        />
-                        <span style={{ fontSize: '14px' }}>
-                          {unit.name} 
-                          {unit.parent && <span style={{ color: 'var(--muted)', fontSize: '12px', marginLeft: '4px' }}>(Subunit)</span>}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ color: 'var(--muted)', fontSize: '14px', marginTop: '4px' }}>No units found for this facility.</p>
-                )
-              ) : (
-                <p style={{ color: 'var(--muted)', fontSize: '14px', marginTop: '4px' }}>Please select a facility to assign units.</p>
-              )}
-            </div>
 
             <div className="field" style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
               <label>Address</label>
@@ -335,7 +244,7 @@ const EditEmployeePage = () => {
                   onChange={handleChange}
                   style={{ width: 'auto' }}
                 />
-                Active
+                Active Employee
               </label>
             </div>
           </div>

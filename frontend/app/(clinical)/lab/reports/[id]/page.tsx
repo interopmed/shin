@@ -8,6 +8,9 @@ import { usePermissions } from '@/hooks/usePermissions';
 import api from '@/lib/api';
 import LabReportTable from '@/components/lab/LabReportTable';
 import { UserRole } from '@/lib/roles';
+import { DutyPathologist, getDutyPathologist, getReportingTechnician } from '@/lib/lab-session';
+import DutyPathologistSelectorModal from '@/components/lab/DutyPathologistSelectorModal';
+import { downloadLabReportPdf } from '@/lib/lab-report-pdf';
 
 interface LabReport {
   id: number;
@@ -75,6 +78,23 @@ const LabReportPage = () => {
   const [subcategories, setSubcategories] = useState<any[]>([]);
   const [testValues, setTestValues] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [dutyPathologist, setDutyPathologistState] = useState<DutyPathologist>(getDutyPathologist());
+  const [isPathologistModalOpen, setIsPathologistModalOpen] = useState(false);
+
+  const reportingTechnician = React.useMemo(() => getReportingTechnician(user), [user]);
+
+  useEffect(() => {
+    const handlePathologistUpdate = (e: any) => {
+      if (e?.detail) {
+        setDutyPathologistState(e.detail);
+      } else {
+        setDutyPathologistState(getDutyPathologist());
+      }
+    };
+    window.addEventListener('lab_duty_pathologist_updated', handlePathologistUpdate);
+    return () => window.removeEventListener('lab_duty_pathologist_updated', handlePathologistUpdate);
+  }, []);
 
   useEffect(() => {
     const fetchReportData = async () => {
@@ -102,68 +122,115 @@ const LabReportPage = () => {
           // Fetch lab category details (reference values + unit)
           const categoryId = reportData.category || (reportData as any).lab_category?.id;
           if (categoryId) {
-            const categoryData = await api.getLabCategory(user.token, categoryId) as LabCategory;
-            setLabCategory((prev) => ({
-              ...(prev || {}),
-              ...categoryData
-            }));
+            try {
+              const categoryData = (await api.getLabCategory(user.token, categoryId)) as LabCategory;
+              setLabCategory((prev) => ({
+                ...(prev || {}),
+                ...categoryData,
+              }));
+            } catch (err) {
+              console.warn('Could not load lab category details:', err);
+            }
           }
 
           // Fetch patient data
-          if (reportData.patient_id && !(reportData as any).patient) {
-            const patientData = await api.getPatient(user.token, String(reportData.patient_id)) as Patient;
-            setPatient(patientData);
+          const rawPatientId = reportData.patient_id || (reportData as any).patient;
+          if (rawPatientId && !(reportData as any).patient?.name) {
+            try {
+              const patientData = (await api.getPatient(user.token, String(rawPatientId))) as Patient;
+              if (patientData && (patientData.name || patientData.id)) {
+                setPatient(patientData);
+              }
+            } catch (err) {
+              console.warn('Could not load patient record, using report metadata:', err);
+              const anyReport = reportData as any;
+              const fallbackName =
+                anyReport.patient_name ||
+                (typeof anyReport.patient === 'string' && !anyReport.patient.match(/^\d+$/)
+                  ? anyReport.patient
+                  : `Patient #${rawPatientId}`);
+              setPatient((prev) => prev || ({
+                id: Number(rawPatientId) || 0,
+                name: fallbackName,
+                sex: anyReport.patient_sex || '',
+                age: anyReport.patient_age || '',
+                phone: anyReport.patient_phone || '',
+              } as Patient));
+            }
           }
 
           // Fetch doctor data
-          if (reportData.doctor_id && !(reportData as any).doctor_name) {
-            const doctorData = await api.getDoctor(user.token, String(reportData.doctor_id)) as Doctor;
-            setDoctor(doctorData?.name || 'Unknown Doctor');
+          const rawDoctorId = reportData.doctor_id || (reportData as any).doctor;
+          if (rawDoctorId && !(reportData as any).doctor_name) {
+            try {
+              const doctorData = (await api.getDoctor(user.token, String(rawDoctorId))) as Doctor;
+              setDoctor(doctorData?.name || 'Unknown Doctor');
+            } catch (err) {
+              console.warn('Could not load doctor details:', err);
+              const anyReport = reportData as any;
+              if (typeof anyReport.doctor === 'string' && !anyReport.doctor.match(/^\d+$/)) {
+                setDoctor(anyReport.doctor);
+              } else {
+                setDoctor(`Doctor #${rawDoctorId}`);
+              }
+            }
           }
 
           // Fetch lab results (test values) for this order
-          const resultsData = await api.getLabResults(user.token, { order: reportData.lab_order_id });
-          const resultsList = Array.isArray(resultsData) ? resultsData : (resultsData?.results || []);
-          if (resultsList.length) {
-            const testValuesMap: Record<string, any> = {};
-            resultsList.forEach((result: any) => {
-              const key = (result.subcategory_name || result.subcategory || '').toString().toUpperCase();
-              if (key) {
-                testValuesMap[key] = {
-                  id: result.id,
-                  value: result.value,
-                  comment: result.comment
-                };
-              }
-
-              if ((result.subcategory || '').toString().match(/^\d+$/) && (reportData as any).lab_category?.category) {
-                const categoryKey = (reportData as any).lab_category.category.toUpperCase();
-                if (categoryKey && !testValuesMap[categoryKey]) {
-                  testValuesMap[categoryKey] = {
+          try {
+            const resultsData = await api.getLabResults(user.token, { order: reportData.lab_order_id });
+            const resultsList = Array.isArray(resultsData) ? resultsData : (resultsData?.results || []);
+            if (resultsList.length) {
+              const testValuesMap: Record<string, any> = {};
+              resultsList.forEach((result: any) => {
+                const key = (result.subcategory_name || result.subcategory || '').toString().toUpperCase();
+                if (key) {
+                  testValuesMap[key] = {
                     id: result.id,
                     value: result.value,
-                    comment: result.comment
+                    comment: result.comment,
                   };
                 }
-              }
-            });
-            setTestValues(testValuesMap);
+
+                if ((result.subcategory || '').toString().match(/^\d+$/) && (reportData as any).lab_category?.category) {
+                  const categoryKey = (reportData as any).lab_category.category.toUpperCase();
+                  if (categoryKey && !testValuesMap[categoryKey]) {
+                    testValuesMap[categoryKey] = {
+                      id: result.id,
+                      value: result.value,
+                      comment: result.comment,
+                    };
+                  }
+                }
+              });
+              setTestValues(testValuesMap);
+            }
+          } catch (err) {
+            console.warn('Could not load lab results:', err);
           }
 
           // Fetch test definitions (subcategories) for this category
           if (reportData.category) {
-            const defsData = await api.getLabTestDefinitions(user.token, { category: reportData.category });
-            const defsList = Array.isArray(defsData) ? defsData : (defsData?.results || []);
-            if (defsList.length) {
-              setSubcategories(defsList);
+            try {
+              const defsData = await api.getLabTestDefinitions(user.token, { category: reportData.category });
+              const defsList = Array.isArray(defsData) ? defsData : (defsData?.results || []);
+              if (defsList.length) {
+                setSubcategories(defsList);
+              }
+            } catch (err) {
+              console.warn('Could not load test definitions:', err);
             }
           }
 
           // Fetch lab sections for this category
           if (reportData.category) {
-            const sectionsData = await api.getLabSections(user.token, reportData.category);
-            if (sectionsData && Array.isArray(sectionsData)) {
-              setSections(sectionsData);
+            try {
+              const sectionsData = await api.getLabSections(user.token, reportData.category);
+              if (sectionsData && Array.isArray(sectionsData)) {
+                setSections(sectionsData);
+              }
+            } catch (err) {
+              console.warn('Could not load lab sections:', err);
             }
           }
 
@@ -198,9 +265,22 @@ const LabReportPage = () => {
     window.print();
   };
 
-  const handleDownload = () => {
-    // TODO: Implement PDF download
-    console.log('Download PDF');
+  const handleDownload = async () => {
+    if (downloadingPdf || !labReport) return;
+    setDownloadingPdf(true);
+    try {
+      const cleanPatientName = (patient?.name || 'Patient').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `Lab_Report_${labReport.lab_order_id || id}_${cleanPatientName}.pdf`;
+      await downloadLabReportPdf({
+        elementId: 'lab-report-printable-area',
+        filename,
+      });
+    } catch (err) {
+      console.error('PDF download error:', err);
+      window.print();
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   const calculateAge = (birthdate?: string, age?: string | number) => {
@@ -259,14 +339,49 @@ const LabReportPage = () => {
         </div>
       </div>
       <div style={{ padding: '24px' }}>
-        {/* Action Buttons */}
-        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--line)' }}>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        {/* Action Buttons & Session Context */}
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
             <button className="button secondary compact" onClick={handlePrint}>
               Print
             </button>
-            <button type="button" className="button primary compact" onClick={handleDownload}>
-              Download
+            <button
+              type="button"
+              className="button primary compact"
+              onClick={handleDownload}
+              disabled={downloadingPdf}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              {downloadingPdf ? (
+                <>
+                  <span
+                    className="spinner-border spinner-border-sm"
+                    role="status"
+                    aria-hidden="true"
+                    style={{ width: '12px', height: '12px', borderWidth: '2px' }}
+                  />
+                  Downloading...
+                </>
+              ) : (
+                <>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download PDF
+                </>
+              )}
             </button>
 
             {canEditReport() && (
@@ -286,6 +401,40 @@ const LabReportPage = () => {
                 )}
               </>
             )}
+
+            {/* Duty Pathologist Session Pill */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#f1f5f9',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                padding: '4px 10px',
+                fontSize: '12px',
+                marginLeft: '8px',
+              }}
+            >
+              <span style={{ color: '#64748b', fontWeight: 600 }}>Duty Pathologist:</span>
+              <strong style={{ color: '#0f172a' }}>{dutyPathologist.name}</strong>
+              <button
+                type="button"
+                onClick={() => setIsPathologistModalOpen(true)}
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '5px',
+                  padding: '2px 8px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#2563eb',
+                  cursor: 'pointer',
+                }}
+              >
+                Change
+              </button>
+            </div>
           </div>
 
           <button onClick={() => router.push('/lab/reports')} className="button secondary compact">
@@ -299,7 +448,7 @@ const LabReportPage = () => {
             <embed id="pdf_report" height="100%" width="100%" src={labReport.report_url} />
           </div>
         ) : (
-          <div className="lab-report">
+          <div id="lab-report-printable-area" className="lab-report">
             {/* Basic Details */}
             <div style={{
               marginBottom: '32px',
@@ -442,21 +591,59 @@ const LabReportPage = () => {
               </div>
             </div>
 
-            {/* Certification */}
-            <div>
-              <div>
-                <div className="float-right text-center">
-                  <p className="font-weight-bold">
-                    Ishari Ubeysiri<br />
-                    Medical Laboratory Technician<br />
-                    SLMC Reg No 2312
+            {/* Certification / Dual Sign-off */}
+            <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid var(--line)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '32px' }}>
+                {/* Prepared & Reported By (Technician) */}
+                <div style={{ minWidth: '240px' }}>
+                  <p style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Prepared & Reported By
                   </p>
+                  <p style={{ margin: '0 0 2px', fontSize: '14px', fontWeight: 700, color: 'var(--text)' }}>
+                    {reportingTechnician.name}
+                  </p>
+                  <p style={{ margin: '0 0 2px', fontSize: '13px', color: 'var(--muted)' }}>
+                    {reportingTechnician.designation}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '12px', color: 'var(--muted)' }}>
+                    {reportingTechnician.regNo}
+                  </p>
+                </div>
+
+                {/* Checked & Authorized By (Duty Pathologist) */}
+                <div style={{ minWidth: '260px', textAlign: 'right' }}>
+                  <p style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Checked & Authorized By
+                  </p>
+                  <p style={{ margin: '0 0 2px', fontSize: '14px', fontWeight: 700, color: 'var(--text)' }}>
+                    {dutyPathologist.name}
+                  </p>
+                  {dutyPathologist.qualifications && (
+                    <p style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: 600, color: 'var(--primary)' }}>
+                      {dutyPathologist.qualifications}
+                    </p>
+                  )}
+                  <p style={{ margin: '0 0 2px', fontSize: '13px', color: 'var(--muted)' }}>
+                    {dutyPathologist.designation}
+                  </p>
+                  {dutyPathologist.slmcRegNo && (
+                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--muted)' }}>
+                      {dutyPathologist.slmcRegNo}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Duty Pathologist Assignment Modal */}
+      <DutyPathologistSelectorModal
+        isOpen={isPathologistModalOpen}
+        onClose={() => setIsPathologistModalOpen(false)}
+        onSaved={(updated) => setDutyPathologistState(updated)}
+      />
     </section>
   );
 };

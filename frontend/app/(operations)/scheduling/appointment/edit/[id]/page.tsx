@@ -142,7 +142,7 @@ const EditAppointmentPage = () => {
         status: formData.status,
       });
 
-      router.push('/appointment');
+      router.push('/scheduling/appointment');
     } catch (error) {
       console.error('Failed to update appointment:', error);
       alert('Failed to update appointment. Please try again.');
@@ -162,7 +162,7 @@ const EditAppointmentPage = () => {
             <div className="col-sm-6">
               <ol className="breadcrumb float-sm-right">
                 <li className="breadcrumb-item"><Link href="/">Home</Link></li>
-                <li className="breadcrumb-item"><Link href="/appointment">Appointments</Link></li>
+                <li className="breadcrumb-item"><Link href="/scheduling/appointment">Appointments</Link></li>
                 <li className="breadcrumb-item active">Edit</li>
               </ol>
             </div>
@@ -177,7 +177,7 @@ const EditAppointmentPage = () => {
               <div className="card-header">
                 <h3 className="card-title">Appointment Details</h3>
                 <div className="card-tools d-flex" style={{ gap: '0.5rem' }}>
-                  <Link href="/appointment" className="btn btn-default btn-sm">Back</Link>
+                  <Link href="/scheduling/appointment" className="btn btn-default btn-sm">Back</Link>
                   <button type="submit" disabled={loading || saving} className="btn btn-primary btn-sm">
                     {saving ? 'Saving...' : 'Update'}
                   </button>

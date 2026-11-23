@@ -7,7 +7,7 @@ import Link from 'next/link';
 export default function DischargeChecklist() {
   const params = useParams();
   const router = useRouter();
-  const patientId = params.patientId;
+  const patientId = params?.patientId;
   const [loading, setLoading] = useState(false);
   
   const [checks, setChecks] = useState({

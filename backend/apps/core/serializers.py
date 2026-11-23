@@ -4,7 +4,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.doctors.models import Doctor
-from .models import Patient, PatientConsentPreference, CareTeam, CareTeamMember, CareTeamNote, Employee, ServiceUnit, TerminologyConcept, Bed
+from .models import Patient, PatientConsentPreference, CareTeam, CareTeamMember, CareTeamNote, Employee, ServiceUnit, TerminologyConcept, Bed, ClinicalFirm, FirmWardCoverage
 
 class TerminologyConceptSerializer(serializers.ModelSerializer):
     class Meta:
@@ -17,6 +17,22 @@ class BedSerializer(serializers.ModelSerializer):
     class Meta:
         model = Bed
         fields = ["id", "unit_id", "bed_number", "status", "created_at", "updated_at"]
+
+class ClinicalFirmSerializer(serializers.ModelSerializer):
+    facility_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    
+    class Meta:
+        model = ClinicalFirm
+        fields = '__all__'
+
+class FirmWardCoverageSerializer(serializers.ModelSerializer):
+    firm = ClinicalFirmSerializer(read_only=True)
+    firm_id = serializers.IntegerField(write_only=True, required=False)
+    unit_id = serializers.IntegerField(write_only=True, required=False)
+    
+    class Meta:
+        model = FirmWardCoverage
+        fields = '__all__'
 
 class ServiceUnitSerializer(serializers.ModelSerializer):
     facility_id = serializers.IntegerField(required=False, allow_null=True)
@@ -164,8 +180,9 @@ class PatientSerializer(serializers.ModelSerializer):
     return _format_datetime(obj.updated_at)
 
   def get_status(self, obj: Patient) -> str:
-    # Check if patient has any active admissions
-    if obj.admissions.filter(status='admitted').exists():
+    from apps.patients.models import Admission
+    # Check if patient has any active admissions by ID directly to bypass model registry conflicts
+    if Admission.objects.filter(patient_id=obj.id, status='admitted').exists():
       return "Admitted"
     return "Clinic"
 

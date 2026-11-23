@@ -517,6 +517,37 @@ class ServiceUnit(models.Model):
     def __str__(self) -> str:
         return self.name
 
+class ClinicalFirm(models.Model):
+    name = models.CharField(max_length=255)
+    facility = models.ForeignKey('Facility', on_delete=models.CASCADE, related_name="clinical_firms", null=True, blank=True)
+    lead_consultant = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="led_firms",
+    )
+    specialty = models.CharField(max_length=150, blank=True, default="")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = True
+        db_table = "clinical_firm"
+
+    def __str__(self) -> str:
+        return self.name
+
+class FirmWardCoverage(models.Model):
+    firm = models.ForeignKey(ClinicalFirm, on_delete=models.CASCADE, related_name="ward_coverages")
+    unit = models.ForeignKey(ServiceUnit, on_delete=models.CASCADE, related_name="firm_coverages")
+    is_exclusive = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        managed = True
+        db_table = "firm_ward_coverage"
+        unique_together = (("firm", "unit"),)
 
 class ServiceUnitStaff(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column="employee_id", related_name="unit_assignments")
@@ -556,6 +587,7 @@ class Bed(models.Model):
 class PatientUnitAssignment(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, db_column="patient_id", related_name="unit_assignments")
     unit = models.ForeignKey(ServiceUnit, on_delete=models.CASCADE, db_column="unit_id", related_name="assigned_patients")
+    firm = models.ForeignKey(ClinicalFirm, on_delete=models.SET_NULL, null=True, blank=True, related_name="assigned_patients")
     bed = models.ForeignKey(Bed, on_delete=models.SET_NULL, null=True, blank=True, related_name="assignments")
     admitted_at = models.DateTimeField(default=timezone.now)
     discharged_at = models.DateTimeField(null=True, blank=True)

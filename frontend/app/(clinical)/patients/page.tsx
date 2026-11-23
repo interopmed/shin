@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
+import { canAccess, createActiveUserFromToken } from '@/lib/permissions';
 import api from '@/lib/api';
 
 interface Patient {
@@ -57,16 +58,20 @@ const PatientListPage = () => {
   const [sexFilter, setSexFilter] = useState('');
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
+  const activeUser = createActiveUserFromToken(user || undefined);
+  const hasAccess = canAccess(activeUser, ['patient.read']);
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push('/login');
       return;
     }
     const fetchPatients = async () => {
-      if (user?.token) {
+      if (user?.token && hasAccess) {
         try {
-          const data = await api.getPatients(user.token) as Patient[];
-          setPatients(data);
+          const data = await api.getPatients(user.token);
+          const list = Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : [];
+          setPatients(list);
         } catch (error: any) {
           console.error('Failed to fetch patients:', error);
           if (error.message?.includes('401') || error.message?.includes('token')) {
@@ -80,7 +85,7 @@ const PatientListPage = () => {
       }
     };
     fetchPatients();
-  }, [user, isAuthenticated, authLoading, router]);
+  }, [user, isAuthenticated, authLoading, router, hasAccess]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -90,7 +95,7 @@ const PatientListPage = () => {
   }, []);
 
   const filtered = useMemo(() => {
-    let list = patients;
+    let list = Array.isArray(patients) ? patients : [];
     const q = searchValue.trim().toLowerCase();
     if (q) {
       list = list.filter(
@@ -107,13 +112,28 @@ const PatientListPage = () => {
     return list;
   }, [patients, searchValue, sexFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil((Array.isArray(filtered) ? filtered.length : 0) / PAGE_SIZE));
+  const paginated = (Array.isArray(filtered) ? filtered : []).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchValue(e.target.value);
     setCurrentPage(1);
   };
+
+  if (!authLoading && user && !hasAccess) {
+    return (
+      <section className="mpi-page">
+        <div className="mpi-card" style={{ padding: '3rem', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
+            Access Restricted
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '0.875rem' }}>
+            Your role does not have permission to view the global patient list.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="mpi-page">

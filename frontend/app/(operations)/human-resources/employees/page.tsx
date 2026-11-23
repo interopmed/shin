@@ -41,8 +41,8 @@ const formatEmploymentType = (value?: string) => {
 const EmployeesPage = () => {
   const { user } = useAuth();
   const searchParams = useSearchParams();
-  const facilityParam = searchParams.get('facility');
-  const unitParam = searchParams.get('unit');
+  const facilityParam = searchParams?.get('facility');
+  const unitParam = searchParams?.get('unit');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

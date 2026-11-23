@@ -142,14 +142,45 @@ const LabEnterReportPage = () => {
           ...categoryData
         }));
 
-        if (reportData.patient_id && !(reportData as any).patient) {
-          const patientData = await api.getPatient(user.token, String(reportData.patient_id)) as Patient;
-          setPatient(patientData);
+        const rawPatientId = reportData.patient_id || (reportData as any).patient;
+        if (rawPatientId && !(reportData as any).patient?.name) {
+          try {
+            const patientData = (await api.getPatient(user.token, String(rawPatientId))) as Patient;
+            if (patientData && (patientData.name || patientData.id)) {
+              setPatient(patientData);
+            }
+          } catch (err) {
+            console.warn('Could not load patient record, using report metadata:', err);
+            const anyReport = reportData as any;
+            const fallbackName =
+              anyReport.patient_name ||
+              (typeof anyReport.patient === 'string' && !anyReport.patient.match(/^\d+$/)
+                ? anyReport.patient
+                : `Patient #${rawPatientId}`);
+            setPatient((prev) => prev || ({
+              id: Number(rawPatientId) || 0,
+              name: fallbackName,
+              sex: anyReport.patient_sex || '',
+              age: anyReport.patient_age || '',
+              phone: anyReport.patient_phone || '',
+            } as Patient));
+          }
         }
 
-        if (reportData.doctor_id && !(reportData as any).doctor_name) {
-          const doctorData = await api.getDoctor(user.token, String(reportData.doctor_id)) as Doctor;
-          setDoctor(doctorData?.name || 'Unknown Doctor');
+        const rawDoctorId = reportData.doctor_id || (reportData as any).doctor;
+        if (rawDoctorId && !(reportData as any).doctor_name) {
+          try {
+            const doctorData = (await api.getDoctor(user.token, String(rawDoctorId))) as Doctor;
+            setDoctor(doctorData?.name || 'Unknown Doctor');
+          } catch (err) {
+            console.warn('Could not load doctor details:', err);
+            const anyReport = reportData as any;
+            if (typeof anyReport.doctor === 'string' && !anyReport.doctor.match(/^\d+$/)) {
+              setDoctor(anyReport.doctor);
+            } else {
+              setDoctor(`Doctor #${rawDoctorId}`);
+            }
+          }
         }
 
         const resultsData = await api.getLabResults(user.token, { order: reportData.lab_order_id });

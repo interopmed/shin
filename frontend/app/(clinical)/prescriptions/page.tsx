@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { canAccess, createActiveUserFromToken } from '@/lib/permissions';
 
 interface Prescription {
   id: number;
@@ -19,9 +20,12 @@ const PrescriptionListPage = () => {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const activeUser = createActiveUserFromToken(user || undefined);
+  const hasAccess = canAccess(activeUser, ['pharmacy.read']);
+
   useEffect(() => {
     const fetchPrescriptions = async () => {
-      if (user?.token) {
+      if (user?.token && hasAccess) {
         try {
           // TODO: Fetch from API
           setPrescriptions([]);
@@ -30,13 +34,30 @@ const PrescriptionListPage = () => {
         } finally {
           setLoading(false);
         }
+      } else {
+        setLoading(false);
       }
     };
 
     fetchPrescriptions();
-  }, [user]);
+  }, [user, hasAccess]);
 
   let content;
+  if (!hasAccess) {
+    return (
+      <div className="patient-list-page">
+        <div className="patient-list-card" style={{ padding: '3rem', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
+            Access Restricted
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '0.875rem' }}>
+            Your role does not have permission to view or manage prescriptions.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     content = (
       <div className="patient-list-footer" style={{ justifyContent: 'center', padding: '4rem' }}>

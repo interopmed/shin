@@ -167,7 +167,9 @@ function SettingRow({
 
 
 export default function SettingsClient({ initialSettings }: SettingsClientProps) {
-  const [settings, setSettings] = useState<SettingsResult>(initialSettings);
+  const [settings, setSettings] = useState<SettingsResult>(
+    initialSettings || { summary: { sections: 0, settings: 0, editable: 0 }, sections: [] }
+  );
   const [activeTab, setActiveTab] = useState<"infrastructure" | "feeds" | "audit">("infrastructure");
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -175,7 +177,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
   const [success, setSuccess] = useState("");
   const [showHelp, setShowHelp] = useState(false);
 
-  const settingsBySection = useMemo(() => settings.sections, [settings]);
+  const settingsBySection = useMemo(() => (Array.isArray(settings?.sections) ? settings.sections : []), [settings]);
 
   // Track modification count
   const changesCount = Object.keys(editedValues).length;
@@ -225,8 +227,8 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
   };
 
   function renderSection(title: string) {
-    const section = settingsBySection.find((item) => item.section === title);
-    if (!section) {
+    const section = (settingsBySection || []).find((item) => item?.section === title);
+    if (!section || !Array.isArray(section.items)) {
       return null;
     }
 

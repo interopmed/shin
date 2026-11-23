@@ -1,5 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from apps.core.views import SettingsView, SettingsItemView
 from .views import (
     CompanyInfoViewSet,
     EmailTemplateViewSet,
@@ -18,5 +19,7 @@ router.register(r'menus', MenuViewSet)
 router.register(r'menu-subs', MenuSubViewSet)
 
 urlpatterns = [
+    path('items/<str:setting_id>/', SettingsItemView.as_view()),
+    path('', SettingsView.as_view()),
     path('', include(router.urls)),
 ]

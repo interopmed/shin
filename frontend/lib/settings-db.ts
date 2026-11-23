@@ -42,7 +42,7 @@ function backendUrl(path: string) {
 }
 
 async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const requestUrl = typeof window === "undefined" ? backendUrl(path) : path;
+  const requestUrl = backendUrl(path);
   const response = await fetch(requestUrl, {
     cache: "no-store",
     headers: {

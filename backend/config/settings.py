@@ -50,7 +50,7 @@ ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv(
         "DJANGO_ALLOWED_HOSTS",
-        "localhost,127.0.0.1,testserver,shin.interopmed.com,.onrender.com,.up.railway.app",
+        "localhost,127.0.0.1,testserver,.interopmed.com,shin.interopmed.com,.onrender.com,.up.railway.app",
     ).split(",")
     if host.strip()
 ]

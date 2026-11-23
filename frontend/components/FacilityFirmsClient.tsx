@@ -1,6 +1,7 @@
 "use client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+const DEFAULT_PROD_API = 'https://shin-backend-mg15.onrender.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? DEFAULT_PROD_API : 'http://127.0.0.1:8000');
 
 import Link from "next/link";
 import { useState, useEffect, type FormEvent } from "react";
